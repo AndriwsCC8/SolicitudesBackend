@@ -148,39 +148,51 @@ namespace Infrastructure.Data
                 new TipoSolicitud { Id = 5, Nombre = "Compra de Material", Descripcion = "Solicitud de compra", AreaId = 4, Activo = true }
             );
 
-            // Usuario Admin inicial (contraseña: Admin123!)
+            // Usuarios iniciales - Uno por cada rol
+            // Contraseñas: Super123!, Admin123!, Agente123!, User123!
             modelBuilder.Entity<Usuario>().HasData(
                 new Usuario
                 {
                     Id = 1,
-                    NombreUsuario = "admin",
-                    Nombre = "Administrador",
-                    Email = "admin@solicitudes.com",
-                    PasswordHash = PasswordHasher.Hash("Admin123!"),
-                    Rol = RolEnum.Admin,
+                    NombreUsuario = "superadmin",
+                    Nombre = "Super Administrador",
+                    Email = "superadmin@solicitudes.com",
+                    PasswordHash = PasswordHasher.Hash("Super123!"),
+                    Rol = RolEnum.SuperAdministrador,
                     Activo = true,
                     FechaCreacion = DateTime.Now
                 },
                 new Usuario
                 {
                     Id = 2,
-                    NombreUsuario = "gestorti",
-                    Nombre = "Gestor TI",
-                    Email = "gestor.ti@solicitudes.com",
-                    PasswordHash = PasswordHasher.Hash("Gestor123!"),
-                    Rol = RolEnum.Gestor,
-                    AreaId = 1,
+                    NombreUsuario = "admin",
+                    Nombre = "Administrador",
+                    Email = "admin@solicitudes.com",
+                    PasswordHash = PasswordHasher.Hash("Admin123!"),
+                    Rol = RolEnum.Administrador,
                     Activo = true,
                     FechaCreacion = DateTime.Now
                 },
                 new Usuario
                 {
                     Id = 3,
-                    NombreUsuario = "solicitante1",
+                    NombreUsuario = "agenteti",
+                    Nombre = "Agente de TI",
+                    Email = "agente.ti@solicitudes.com",
+                    PasswordHash = PasswordHasher.Hash("Agente123!"),
+                    Rol = RolEnum.AgenteArea,
+                    AreaId = 1,
+                    Activo = true,
+                    FechaCreacion = DateTime.Now
+                },
+                new Usuario
+                {
+                    Id = 4,
+                    NombreUsuario = "usuario1",
                     Nombre = "Juan Pérez",
                     Email = "juan.perez@solicitudes.com",
                     PasswordHash = PasswordHasher.Hash("User123!"),
-                    Rol = RolEnum.Solicitante,
+                    Rol = RolEnum.Usuario,
                     Activo = true,
                     FechaCreacion = DateTime.Now
                 }
