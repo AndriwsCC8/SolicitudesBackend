@@ -78,6 +78,7 @@ builder.Services.AddScoped<ICatalogService, CatalogService>();
 builder.Services.AddScoped<ISolicitudService, SolicitudService>();
 builder.Services.AddScoped<IComentarioService, ComentarioService>();
 builder.Services.AddScoped<IHistorialService, HistorialService>();
+builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 
 // Configurar CORS (opcional)
 builder.Services.AddCors(options =>
