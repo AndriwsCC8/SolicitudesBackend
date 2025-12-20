@@ -2,6 +2,7 @@ using Application.DTOs.Solicitudes;
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.Exceptions;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,12 +25,12 @@ namespace Infrastructure.Services
                 .FirstOrDefaultAsync(t => t.Id == dto.TipoSolicitudId && t.Activo);
 
             if (tipoSolicitud == null)
-                throw new Exception("Tipo de solicitud no encontrado o inactivo");
+                throw new NotFoundException("Tipo de solicitud no encontrado o inactivo");
 
             // Obtener usuario
             var usuario = await _context.Usuarios.FindAsync(usuarioId);
             if (usuario == null)
-                throw new Exception("Usuario no encontrado");
+                throw new NotFoundException("Usuario no encontrado");
 
             // Generar número de solicitud único (SOL-YYYY-####)
             var año = DateTime.Now.Year;

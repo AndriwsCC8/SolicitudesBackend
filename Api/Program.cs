@@ -1,4 +1,5 @@
 using Application.Interfaces;
+using Api.Middlewares;
 using Infrastructure.Data;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -88,6 +89,9 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Middleware de manejo global de errores (debe ir primero)
+app.UseMiddleware<ExceptionMiddleware>();
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())

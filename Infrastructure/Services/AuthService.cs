@@ -1,6 +1,7 @@
 using Application.DTOs.Auth;
 using Application.Interfaces;
 using Domain.Entities;
+using Domain.Exceptions;
 using Infrastructure.Data;
 using Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
@@ -54,7 +55,7 @@ namespace Infrastructure.Services
         public string GenerateJwtToken(int userId, string nombreUsuario, string rol, int? areaId)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
-                _configuration["JwtSettings:SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured")));
+                _configuration["JwtSettings:SecretKey"] ?? throw new BusinessException("JWT SecretKey no está configurado")));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
             var claims = new List<Claim>

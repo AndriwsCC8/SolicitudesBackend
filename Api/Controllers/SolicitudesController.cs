@@ -25,16 +25,9 @@ namespace Api.Controllers
         [Authorize(Roles = "Usuario")]
         public async Task<IActionResult> CrearSolicitud([FromBody] CrearSolicitudDto dto)
         {
-            try
-            {
-                var usuarioId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var solicitud = await _solicitudService.CrearAsync(dto, usuarioId);
-                return Ok(solicitud);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
+            var usuarioId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var solicitud = await _solicitudService.CrearAsync(dto, usuarioId);
+            return Ok(solicitud);
         }
 
         /// <summary>
@@ -56,22 +49,14 @@ namespace Api.Controllers
         [Authorize(Roles = "AgenteArea")]
         public async Task<IActionResult> ObtenerPorArea(int areaId)
         {
-            try
+            var usuarioAreaId = User.FindFirstValue("AreaId");
+            if (usuarioAreaId == null || int.Parse(usuarioAreaId) != areaId)
             {
-                // Validar que el agente pertenece al área solicitada
-                var usuarioAreaId = User.FindFirstValue("AreaId");
-                if (usuarioAreaId == null || int.Parse(usuarioAreaId) != areaId)
-                {
-                    return Forbid();
-                }
+                throw new Domain.Exceptions.UnauthorizedActionException("No tienes permiso para acceder a las solicitudes de esta área");
+            }
 
-                var solicitudes = await _solicitudService.ObtenerPorAreaAsync(areaId);
-                return Ok(solicitudes);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
+            var solicitudes = await _solicitudService.ObtenerPorAreaAsync(areaId);
+            return Ok(solicitudes);
         }
 
         /// <summary>
