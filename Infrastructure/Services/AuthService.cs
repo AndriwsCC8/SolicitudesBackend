@@ -2,6 +2,7 @@ using Application.DTOs.Auth;
 using Application.Interfaces;
 using Domain.Entities;
 using Infrastructure.Data;
+using Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -81,12 +82,7 @@ namespace Infrastructure.Services
 
         private bool VerifyPassword(string password, string passwordHash)
         {
-            // TEMPORAL: comparación simple
-            // EN PRODUCCIÓN: usar BCrypt.Net-Next
-            // return BCrypt.Net.BCrypt.Verify(password, passwordHash);
-            
-            // Para desarrollo, aceptamos contraseñas simples
-            return password == "Admin123!" || password == "Gestor123!" || password == "User123!";
+            return PasswordHasher.Verify(password, passwordHash);
         }
     }
 }

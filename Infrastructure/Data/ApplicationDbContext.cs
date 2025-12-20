@@ -1,5 +1,6 @@
 using Domain.Entities;
 using Domain.Enums;
+using Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Data
@@ -155,7 +156,7 @@ namespace Infrastructure.Data
                     NombreUsuario = "admin",
                     Nombre = "Administrador",
                     Email = "admin@solicitudes.com",
-                    PasswordHash = "$2a$11$rJ3Z9YqZX8K8YqZX8K8YqO9YqZX8K8YqZX8K8YqZX8K8YqZX8K8Yq", // Placeholder - se actualizará
+                    PasswordHash = PasswordHasher.Hash("Admin123!"),
                     Rol = RolEnum.Admin,
                     Activo = true,
                     FechaCreacion = DateTime.Now
@@ -166,7 +167,7 @@ namespace Infrastructure.Data
                     NombreUsuario = "gestorti",
                     Nombre = "Gestor TI",
                     Email = "gestor.ti@solicitudes.com",
-                    PasswordHash = "$2a$11$rJ3Z9YqZX8K8YqZX8K8YqO9YqZX8K8YqZX8K8YqZX8K8YqZX8K8Yq",
+                    PasswordHash = PasswordHasher.Hash("Gestor123!"),
                     Rol = RolEnum.Gestor,
                     AreaId = 1,
                     Activo = true,
@@ -178,7 +179,7 @@ namespace Infrastructure.Data
                     NombreUsuario = "solicitante1",
                     Nombre = "Juan Pérez",
                     Email = "juan.perez@solicitudes.com",
-                    PasswordHash = "$2a$11$rJ3Z9YqZX8K8YqZX8K8YqO9YqZX8K8YqZX8K8YqZX8K8YqZX8K8Yq",
+                    PasswordHash = PasswordHasher.Hash("User123!"),
                     Rol = RolEnum.Solicitante,
                     Activo = true,
                     FechaCreacion = DateTime.Now
