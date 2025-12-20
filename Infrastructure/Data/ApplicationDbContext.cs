@@ -1,0 +1,189 @@
+using Domain.Entities;
+using Domain.Enums;
+using Microsoft.EntityFrameworkCore;
+
+namespace Infrastructure.Data
+{
+    public class ApplicationDbContext : DbContext
+    {
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+        {
+        }
+
+        public DbSet<Usuario> Usuarios { get; set; }
+        public DbSet<Area> Areas { get; set; }
+        public DbSet<TipoSolicitud> TiposSolicitud { get; set; }
+        public DbSet<Solicitud> Solicitudes { get; set; }
+        public DbSet<Comentario> Comentarios { get; set; }
+        public DbSet<HistorialEstado> HistorialEstados { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // Configuración Usuario
+            modelBuilder.Entity<Usuario>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.NombreUsuario).IsRequired().HasMaxLength(50);
+                entity.HasIndex(e => e.NombreUsuario).IsUnique();
+                entity.Property(e => e.Nombre).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Email).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.PasswordHash).IsRequired();
+                entity.Property(e => e.Rol).IsRequired();
+
+                entity.HasOne(e => e.Area)
+                    .WithMany(a => a.Usuarios)
+                    .HasForeignKey(e => e.AreaId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Configuración Area
+            modelBuilder.Entity<Area>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nombre).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Descripcion).HasMaxLength(500);
+            });
+
+            // Configuración TipoSolicitud
+            modelBuilder.Entity<TipoSolicitud>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Nombre).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Descripcion).HasMaxLength(500);
+
+                entity.HasOne(e => e.Area)
+                    .WithMany(a => a.TiposSolicitud)
+                    .HasForeignKey(e => e.AreaId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configuración Solicitud
+            modelBuilder.Entity<Solicitud>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Numero).IsRequired().HasMaxLength(20);
+                entity.HasIndex(e => e.Numero).IsUnique();
+                entity.Property(e => e.Asunto).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Descripcion).IsRequired().HasMaxLength(2000);
+                entity.Property(e => e.MotivoRechazo).HasMaxLength(500);
+
+                entity.HasOne(e => e.Area)
+                    .WithMany(a => a.Solicitudes)
+                    .HasForeignKey(e => e.AreaId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.TipoSolicitud)
+                    .WithMany(t => t.Solicitudes)
+                    .HasForeignKey(e => e.TipoSolicitudId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Solicitante)
+                    .WithMany(u => u.SolicitudesCreadas)
+                    .HasForeignKey(e => e.SolicitanteId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.GestorAsignado)
+                    .WithMany(u => u.SolicitudesAsignadas)
+                    .HasForeignKey(e => e.GestorAsignadoId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Configuración Comentario
+            modelBuilder.Entity<Comentario>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Texto).IsRequired().HasMaxLength(1000);
+
+                entity.HasOne(e => e.Solicitud)
+                    .WithMany(s => s.Comentarios)
+                    .HasForeignKey(e => e.SolicitudId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Usuario)
+                    .WithMany(u => u.Comentarios)
+                    .HasForeignKey(e => e.UsuarioId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configuración HistorialEstado
+            modelBuilder.Entity<HistorialEstado>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Observacion).HasMaxLength(500);
+
+                entity.HasOne(e => e.Solicitud)
+                    .WithMany(s => s.HistorialEstados)
+                    .HasForeignKey(e => e.SolicitudId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Usuario)
+                    .WithMany()
+                    .HasForeignKey(e => e.UsuarioId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Datos semilla
+            SeedData(modelBuilder);
+        }
+
+        private void SeedData(ModelBuilder modelBuilder)
+        {
+            // Áreas iniciales
+            modelBuilder.Entity<Area>().HasData(
+                new Area { Id = 1, Nombre = "TI", Descripcion = "Tecnología de la Información", Activo = true },
+                new Area { Id = 2, Nombre = "Mantenimiento", Descripcion = "Mantenimiento de instalaciones", Activo = true },
+                new Area { Id = 3, Nombre = "Transporte", Descripcion = "Gestión de transporte", Activo = true },
+                new Area { Id = 4, Nombre = "Compras", Descripcion = "Adquisiciones y compras", Activo = true }
+            );
+
+            // Tipos de Solicitud iniciales
+            modelBuilder.Entity<TipoSolicitud>().HasData(
+                new TipoSolicitud { Id = 1, Nombre = "Soporte PC", Descripcion = "Soporte técnico de computadoras", AreaId = 1, Activo = true },
+                new TipoSolicitud { Id = 2, Nombre = "Acceso a Sistema", Descripcion = "Solicitud de acceso a sistemas", AreaId = 1, Activo = true },
+                new TipoSolicitud { Id = 3, Nombre = "Reparación", Descripcion = "Reparación de instalaciones", AreaId = 2, Activo = true },
+                new TipoSolicitud { Id = 4, Nombre = "Asignación de Vehículo", Descripcion = "Solicitud de vehículo", AreaId = 3, Activo = true },
+                new TipoSolicitud { Id = 5, Nombre = "Compra de Material", Descripcion = "Solicitud de compra", AreaId = 4, Activo = true }
+            );
+
+            // Usuario Admin inicial (contraseña: Admin123!)
+            modelBuilder.Entity<Usuario>().HasData(
+                new Usuario
+                {
+                    Id = 1,
+                    NombreUsuario = "admin",
+                    Nombre = "Administrador",
+                    Email = "admin@solicitudes.com",
+                    PasswordHash = "$2a$11$rJ3Z9YqZX8K8YqZX8K8YqO9YqZX8K8YqZX8K8YqZX8K8YqZX8K8Yq", // Placeholder - se actualizará
+                    Rol = RolEnum.Admin,
+                    Activo = true,
+                    FechaCreacion = DateTime.Now
+                },
+                new Usuario
+                {
+                    Id = 2,
+                    NombreUsuario = "gestorti",
+                    Nombre = "Gestor TI",
+                    Email = "gestor.ti@solicitudes.com",
+                    PasswordHash = "$2a$11$rJ3Z9YqZX8K8YqZX8K8YqO9YqZX8K8YqZX8K8YqZX8K8YqZX8K8Yq",
+                    Rol = RolEnum.Gestor,
+                    AreaId = 1,
+                    Activo = true,
+                    FechaCreacion = DateTime.Now
+                },
+                new Usuario
+                {
+                    Id = 3,
+                    NombreUsuario = "solicitante1",
+                    Nombre = "Juan Pérez",
+                    Email = "juan.perez@solicitudes.com",
+                    PasswordHash = "$2a$11$rJ3Z9YqZX8K8YqZX8K8YqO9YqZX8K8YqZX8K8YqZX8K8YqZX8K8Yq",
+                    Rol = RolEnum.Solicitante,
+                    Activo = true,
+                    FechaCreacion = DateTime.Now
+                }
+            );
+        }
+    }
+}
