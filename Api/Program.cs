@@ -74,6 +74,7 @@ builder.Services.AddAuthorization();
 // Registrar servicios
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICatalogService, CatalogService>();
+builder.Services.AddScoped<ISolicitudService, SolicitudService>();
 
 // Configurar CORS (opcional)
 builder.Services.AddCors(options =>
