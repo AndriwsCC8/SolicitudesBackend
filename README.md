@@ -102,6 +102,4 @@ luego ejecutar "dotnet run"
 
 entrar en la url que esta en la terminal para probar el swagger.
 
-Relaciones configuradas en OnModelCreating
 
-Datos semilla iniciales
