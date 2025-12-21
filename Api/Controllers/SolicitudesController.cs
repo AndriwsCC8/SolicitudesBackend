@@ -69,5 +69,53 @@ namespace Api.Controllers
             var solicitudes = await _solicitudService.ObtenerTodasAsync();
             return Ok(solicitudes);
         }
+
+        /// <summary>
+        /// Asignar agente a una solicitud (Solo administradores)
+        /// </summary>
+        [HttpPost("asignar-agente")]
+        [Authorize(Roles = "Administrador,SuperAdministrador")]
+        public async Task<IActionResult> AsignarAgente([FromBody] AsignarAgenteDto dto)
+        {
+            var adminId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var solicitud = await _solicitudService.AsignarAgenteAsync(dto, adminId);
+            return Ok(solicitud);
+        }
+
+        /// <summary>
+        /// Cambiar estado de una solicitud (Solo agentes del área asignados)
+        /// </summary>
+        [HttpPut("cambiar-estado")]
+        [Authorize(Roles = "AgenteArea")]
+        public async Task<IActionResult> CambiarEstado([FromBody] CambiarEstadoDto dto)
+        {
+            var agenteId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var solicitud = await _solicitudService.CambiarEstadoAsync(dto, agenteId);
+            return Ok(solicitud);
+        }
+
+        /// <summary>
+        /// Rechazar una solicitud (Solo agentes del área asignados)
+        /// </summary>
+        [HttpPost("rechazar")]
+        [Authorize(Roles = "AgenteArea")]
+        public async Task<IActionResult> Rechazar([FromBody] RechazarSolicitudDto dto)
+        {
+            var agenteId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var solicitud = await _solicitudService.RechazarAsync(dto, agenteId);
+            return Ok(solicitud);
+        }
+
+        /// <summary>
+        /// Cerrar una solicitud (Solo el solicitante)
+        /// </summary>
+        [HttpPost("cerrar")]
+        [Authorize(Roles = "Usuario")]
+        public async Task<IActionResult> Cerrar([FromBody] CerrarSolicitudDto dto)
+        {
+            var usuarioId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var solicitud = await _solicitudService.CerrarAsync(dto, usuarioId);
+            return Ok(solicitud);
+        }
     }
 }
