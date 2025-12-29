@@ -31,9 +31,11 @@ namespace Infrastructure.Services
             // Validar permisos según el rol
             ValidarPermisoAcceso(solicitud, usuarioId, rol, areaId);
 
-            // Validar que la solicitud no esté cerrada o rechazada
-            if (solicitud.Estado == EstadoSolicitudEnum.Cerrada || solicitud.Estado == EstadoSolicitudEnum.Rechazada)
-                throw new BusinessException("No se pueden agregar comentarios a solicitudes cerradas o rechazadas");
+            // Validar que la solicitud no esté cerrada, rechazada o cancelada
+            if (solicitud.Estado == EstadoSolicitudEnum.Cerrada || 
+                solicitud.Estado == EstadoSolicitudEnum.Rechazada ||
+                solicitud.Estado == EstadoSolicitudEnum.Cancelada)
+                throw new BusinessException("No se pueden agregar comentarios a solicitudes cerradas, rechazadas o canceladas");
 
             // Validar que el contenido no esté vacío
             if (string.IsNullOrWhiteSpace(dto.Contenido))

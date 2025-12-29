@@ -4,3 +4,34 @@ GET {{Api_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+# ========================
+# EXPORTAR SOLICITUD A PDF
+# ========================
+
+# Obtener token de SuperAdministrador (usuario: admin@sistema.com, contraseña: Admin123!)
+POST {{Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@sistema.com",
+  "password": "Admin123!"
+}
+
+###
+
+# Exportar solicitud a PDF (Solo SuperAdministrador)
+# Reemplaza {token} con el token JWT del SuperAdministrador
+# Reemplaza {id} con el ID de la solicitud a exportar (ejemplo: 1004)
+GET {{Api_HostAddress}}/api/solicitudes/1004/export/pdf
+Authorization: Bearer {token}
+
+###
+
+# Exportar solicitud a PNG (Solo SuperAdministrador)
+# Reemplaza {token} con el token JWT del SuperAdministrador
+# Reemplaza {id} con el ID de la solicitud a exportar (ejemplo: 1004)
+GET {{Api_HostAddress}}/api/solicitudes/1004/export/png
+Authorization: Bearer {token}
+
+###

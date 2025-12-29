@@ -6,6 +6,7 @@ namespace Application.Interfaces
     {
         // Consultas
         Task<SolicitudDto> CrearAsync(CrearSolicitudDto dto, int usuarioId);
+        Task<SolicitudDto?> ObtenerPorIdAsync(int solicitudId, int usuarioId);
         Task<IEnumerable<SolicitudDto>> ObtenerPorUsuarioAsync(int usuarioId);
         Task<IEnumerable<SolicitudDto>> ObtenerPorAreaAsync(int areaId);
         Task<IEnumerable<SolicitudDto>> ObtenerTodasAsync();

@@ -6,6 +6,7 @@ namespace Domain.Enums
         EnProceso = 2,
         Resuelta = 3,
         Cerrada = 4,
-        Rechazada = 5
+        Rechazada = 5,
+        Cancelada = 6
     }
 }
