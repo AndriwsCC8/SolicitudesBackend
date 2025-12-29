@@ -79,6 +79,7 @@ builder.Services.AddScoped<ISolicitudService, SolicitudService>();
 builder.Services.AddScoped<IComentarioService, ComentarioService>();
 builder.Services.AddScoped<IHistorialService, HistorialService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
+builder.Services.AddScoped<IPdfExportService, PdfExportService>();
 
 // Configurar CORS (opcional)
 builder.Services.AddCors(options =>

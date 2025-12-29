@@ -4,6 +4,7 @@ using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251229151310_AddEmpleadoIdToUsuario")]
+    partial class AddEmpleadoIdToUsuario
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -311,6 +314,9 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("EmpleadoId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("datetime2");
 
@@ -346,10 +352,10 @@ namespace Infrastructure.Migrations
                             Id = 1,
                             Activo = true,
                             Email = "superadmin@solicitudes.com",
-                            FechaCreacion = new DateTime(2025, 12, 29, 14, 1, 37, 628, DateTimeKind.Local).AddTicks(7059),
+                            FechaCreacion = new DateTime(2025, 12, 29, 11, 13, 9, 458, DateTimeKind.Local).AddTicks(1662),
                             Nombre = "Super Administrador",
                             NombreUsuario = "superadmin",
-                            PasswordHash = "$2a$11$LcsnDSQyOhIPkwnZQuX1VOIb57z9UsoYUKH7sWyczAqrnTOIChl9G",
+                            PasswordHash = "$2a$11$SIyKkMyZWwKo6YzAZD6I2elyXLg4NB9DJGbFuBxEBAPtJ2tISXaUy",
                             Rol = 3
                         },
                         new
@@ -357,10 +363,10 @@ namespace Infrastructure.Migrations
                             Id = 2,
                             Activo = true,
                             Email = "admin@solicitudes.com",
-                            FechaCreacion = new DateTime(2025, 12, 29, 14, 1, 37, 757, DateTimeKind.Local).AddTicks(6337),
+                            FechaCreacion = new DateTime(2025, 12, 29, 11, 13, 9, 607, DateTimeKind.Local).AddTicks(7328),
                             Nombre = "Administrador",
                             NombreUsuario = "admin",
-                            PasswordHash = "$2a$11$zrwo1c/5mfvs6V8DojymYODH7tTFUn4MZh.fE9ylgxhcwKt9L9DuW",
+                            PasswordHash = "$2a$11$4eJWAmjWiyfbcImdowsK7uQVOopuGCEq9bqMPvzzZ5UW7XFAqNUy6",
                             Rol = 2
                         },
                         new
@@ -369,10 +375,10 @@ namespace Infrastructure.Migrations
                             Activo = true,
                             AreaId = 1,
                             Email = "agente.ti@solicitudes.com",
-                            FechaCreacion = new DateTime(2025, 12, 29, 14, 1, 37, 893, DateTimeKind.Local).AddTicks(9117),
+                            FechaCreacion = new DateTime(2025, 12, 29, 11, 13, 9, 743, DateTimeKind.Local).AddTicks(7107),
                             Nombre = "Agente de TI",
                             NombreUsuario = "agenteti",
-                            PasswordHash = "$2a$11$.jjczi9.2ap/YWa9eHqexOYNfM0WJvyq/6MZPnTrqcbHjek0ge7wW",
+                            PasswordHash = "$2a$11$oKeA8yPnyfYQAoNMdoICfeOpOltmZV6p9bR6FskfHGTokQ6fSOiWO",
                             Rol = 4
                         },
                         new
@@ -380,10 +386,10 @@ namespace Infrastructure.Migrations
                             Id = 4,
                             Activo = true,
                             Email = "juan.perez@solicitudes.com",
-                            FechaCreacion = new DateTime(2025, 12, 29, 14, 1, 38, 32, DateTimeKind.Local).AddTicks(2523),
+                            FechaCreacion = new DateTime(2025, 12, 29, 11, 13, 9, 881, DateTimeKind.Local).AddTicks(5621),
                             Nombre = "Juan Pérez",
                             NombreUsuario = "usuario1",
-                            PasswordHash = "$2a$11$h2Meyg30TVChcUpjHNds4uHGMTNRL9Bd6TL2zJAaYnZDeRFKJzdFK",
+                            PasswordHash = "$2a$11$/eShXgAC7PLhSEl.NtrNfecMOHUe4z6wmaEObKXLyvplhm23oQfqm",
                             Rol = 1
                         });
                 });
