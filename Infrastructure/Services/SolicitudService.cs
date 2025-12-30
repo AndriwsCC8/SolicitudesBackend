@@ -207,6 +207,7 @@ namespace Infrastructure.Services
                     .Include(s => s.GestorAsignado)
                     .Include(s => s.Comentarios)
                         .ThenInclude(c => c.Usuario)
+                            .ThenInclude(u => u.Area)
                     .FirstOrDefaultAsync(s => s.Id == solicitudId);
 
                 if (solicitud == null)
@@ -299,6 +300,65 @@ namespace Infrastructure.Services
             return solicitudes.Select(MapToDto);
         }
 
+        public async Task<SolicitudDto> TomarSolicitudAsync(int solicitudId, int usuarioId)
+        {
+            var solicitud = await _context.Solicitudes
+                .Include(s => s.Area)
+                .Include(s => s.TipoSolicitud)
+                .Include(s => s.Solicitante)
+                .Include(s => s.GestorAsignado)
+                .FirstOrDefaultAsync(s => s.Id == solicitudId);
+
+            if (solicitud == null)
+                throw new NotFoundException("Solicitud no encontrada");
+
+            // Validar que no esté ya asignada
+            if (solicitud.GestorAsignadoId.HasValue)
+                throw new BusinessException("La solicitud ya está asignada a otro gestor");
+
+            // Validar que no esté cerrada/rechazada/cancelada
+            if (solicitud.Estado == EstadoSolicitudEnum.Cerrada ||
+                solicitud.Estado == EstadoSolicitudEnum.Rechazada ||
+                solicitud.Estado == EstadoSolicitudEnum.Cancelada)
+                throw new BusinessException("No se puede tomar una solicitud cerrada, rechazada o cancelada");
+
+            var usuario = await _context.Usuarios.FindAsync(usuarioId);
+            if (usuario == null)
+                throw new NotFoundException("Usuario no encontrado");
+
+            // Validar permisos
+            bool esAdmin = usuario.Rol == RolEnum.Administrador || usuario.Rol == RolEnum.SuperAdministrador;
+            bool esAgenteDelArea = usuario.Rol == RolEnum.AgenteArea && usuario.AreaId == solicitud.AreaId;
+
+            if (!esAdmin && !esAgenteDelArea)
+                throw new UnauthorizedActionException("No tienes permiso para tomar solicitudes de esta área");
+
+            // Asignar solicitud al usuario actual
+            var estadoAnterior = solicitud.Estado;
+            solicitud.GestorAsignadoId = usuarioId;
+
+            // Cambiar estado a EnProceso si estaba Nueva
+            if (solicitud.Estado == EstadoSolicitudEnum.Nueva)
+            {
+                solicitud.Estado = EstadoSolicitudEnum.EnProceso;
+                await RegistrarHistorialAsync(solicitud.Id, usuarioId, estadoAnterior, EstadoSolicitudEnum.EnProceso,
+                    $"Solicitud tomada por {usuario.Nombre}");
+            }
+            else
+            {
+                await RegistrarHistorialAsync(solicitud.Id, usuarioId, estadoAnterior, estadoAnterior,
+                    $"Solicitud tomada por {usuario.Nombre}");
+            }
+
+            await _context.SaveChangesAsync();
+            await _context.Entry(solicitud).Reference(s => s.GestorAsignado).LoadAsync();
+
+            _logger.LogInformation("Usuario {UsuarioId} ({Nombre}) tomó la solicitud {SolicitudId}", 
+                usuarioId, usuario.Nombre, solicitudId);
+
+            return MapToDto(solicitud);
+        }
+
         public async Task<SolicitudDto> AsignarAgenteAsync(AsignarAgenteDto dto, int adminId)
         {
             var solicitud = await _context.Solicitudes
@@ -337,6 +397,63 @@ namespace Infrastructure.Services
 
             await _context.SaveChangesAsync();
             await _context.Entry(solicitud).Reference(s => s.GestorAsignado).LoadAsync();
+
+            return MapToDto(solicitud);
+        }
+
+        public async Task<SolicitudDto> DesasignarGestorAsync(int solicitudId, int usuarioId)
+        {
+            var solicitud = await _context.Solicitudes
+                .Include(s => s.Area)
+                .Include(s => s.TipoSolicitud)
+                .Include(s => s.Solicitante)
+                .Include(s => s.GestorAsignado)
+                .FirstOrDefaultAsync(s => s.Id == solicitudId);
+
+            if (solicitud == null)
+                throw new NotFoundException("Solicitud no encontrada");
+
+            var usuario = await _context.Usuarios.FindAsync(usuarioId);
+            if (usuario == null)
+                throw new NotFoundException("Usuario no encontrado");
+
+            // Validar permisos: Admin, SuperAdmin o el gestor actualmente asignado
+            bool esAdmin = usuario.Rol == RolEnum.Administrador || usuario.Rol == RolEnum.SuperAdministrador;
+            bool esGestorAsignado = solicitud.GestorAsignadoId.HasValue && solicitud.GestorAsignadoId == usuarioId;
+
+            if (!esAdmin && !esGestorAsignado)
+                throw new UnauthorizedActionException("No tienes permiso para desasignar esta solicitud");
+
+            // Si no había gestor asignado, no hay nada que desasignar
+            if (!solicitud.GestorAsignadoId.HasValue)
+                throw new BusinessException("La solicitud no tiene un gestor asignado");
+
+            var gestorAnterior = solicitud.GestorAsignado?.Nombre ?? "Desconocido";
+            var estadoAnterior = solicitud.Estado;
+
+            // Limpiar el gestor asignado
+            solicitud.GestorAsignadoId = null;
+
+            // Cambiar estado a Nueva si no está ya en ese estado
+            if (solicitud.Estado != EstadoSolicitudEnum.Nueva)
+            {
+                solicitud.Estado = EstadoSolicitudEnum.Nueva;
+                await RegistrarHistorialAsync(solicitud.Id, usuarioId, estadoAnterior, EstadoSolicitudEnum.Nueva,
+                    $"Gestor {gestorAnterior} desasignado. Estado cambiado a Nueva");
+            }
+            else
+            {
+                await RegistrarHistorialAsync(solicitud.Id, usuarioId, estadoAnterior, estadoAnterior,
+                    $"Gestor {gestorAnterior} desasignado");
+            }
+
+            await _context.SaveChangesAsync();
+
+            // Recargar sin el gestor asignado
+            await _context.Entry(solicitud).Reference(s => s.GestorAsignado).LoadAsync();
+
+            _logger.LogInformation("Solicitud {SolicitudId} desasignada. Gestor anterior: {GestorAnterior}",
+                solicitudId, gestorAnterior);
 
             return MapToDto(solicitud);
         }

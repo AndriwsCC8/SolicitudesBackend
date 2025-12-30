@@ -223,6 +223,51 @@ namespace Api.Controllers
         }
 
         /// <summary>
+        /// Bandeja de Área - Obtener solicitudes del área del usuario logueado
+        /// </summary>
+        [HttpGet("area")]
+        [Authorize(Roles = "AgenteArea,Administrador,SuperAdministrador")]
+        public async Task<IActionResult> ObtenerBandejaArea()
+        {
+            try
+            {
+                var usuarioIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(usuarioIdClaim) || !int.TryParse(usuarioIdClaim, out int usuarioId))
+                {
+                    return Unauthorized(new { message = "Token inválido" });
+                }
+
+                var rolClaim = User.FindFirstValue(ClaimTypes.Role);
+                _logger.LogInformation("Usuario {UsuarioId} con rol {Rol} solicitando bandeja de área", usuarioId, rolClaim);
+
+                // Admin y SuperAdmin ven todas las solicitudes
+                if (rolClaim == "Administrador" || rolClaim == "SuperAdministrador")
+                {
+                    var todasSolicitudes = await _solicitudService.ObtenerTodasAsync();
+                    return Ok(todasSolicitudes);
+                }
+
+                // AgenteArea solo ve solicitudes de su área
+                var usuarioAreaIdClaim = User.FindFirstValue("AreaId");
+                if (string.IsNullOrEmpty(usuarioAreaIdClaim) || !int.TryParse(usuarioAreaIdClaim, out int areaId))
+                {
+                    return BadRequest(new { message = "Usuario no tiene área asignada" });
+                }
+
+                var solicitudes = await _solicitudService.ObtenerPorAreaAsync(areaId);
+                _logger.LogInformation("Devolviendo {Count} solicitudes del área {AreaId} para usuario {UsuarioId}", 
+                    solicitudes.Count(), areaId, usuarioId);
+                
+                return Ok(solicitudes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener bandeja de área");
+                return StatusCode(500, new { message = $"Error al obtener solicitudes: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
         /// Obtener todas las solicitudes (Solo administradores)
         /// </summary>
         [HttpGet]
@@ -246,6 +291,137 @@ namespace Api.Controllers
         }
 
         /// <summary>
+        /// Tomar una solicitud sin asignar (Gestores de área y Administradores)
+        /// </summary>
+        [HttpPost("{id}/tomar")]
+        [Authorize(Roles = "AgenteArea,Administrador,SuperAdministrador")]
+        public async Task<IActionResult> TomarSolicitud(int id)
+        {
+            try
+            {
+                var usuarioId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                
+                _logger.LogInformation("Usuario {UsuarioId} intentando tomar solicitud {SolicitudId}", usuarioId, id);
+                
+                var solicitud = await _solicitudService.TomarSolicitudAsync(id, usuarioId);
+                
+                return Ok(new 
+                { 
+                    message = "Solicitud tomada exitosamente",
+                    solicitud 
+                });
+            }
+            catch (BusinessException ex)
+            {
+                _logger.LogWarning(ex, "Regla de negocio violada al tomar solicitud {SolicitudId}", id);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (UnauthorizedActionException ex)
+            {
+                _logger.LogWarning(ex, "Acceso denegado al tomar solicitud {SolicitudId}", id);
+                return StatusCode(403, new { message = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                _logger.LogWarning(ex, "Solicitud {SolicitudId} no encontrada", id);
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al tomar solicitud {SolicitudId}", id);
+                return StatusCode(500, new { message = $"Error al tomar solicitud: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Asignar solicitud a un usuario específico (Solo administradores)
+        /// </summary>
+        [HttpPost("{id}/asignar/{usuarioId}")]
+        [Authorize(Roles = "Administrador,SuperAdministrador")]
+        public async Task<IActionResult> AsignarSolicitudAUsuario(int id, int usuarioId)
+        {
+            try
+            {
+                var adminId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                
+                _logger.LogInformation("Admin {AdminId} asignando solicitud {SolicitudId} a usuario {UsuarioId}", 
+                    adminId, id, usuarioId);
+                
+                var dto = new AsignarAgenteDto 
+                { 
+                    SolicitudId = id, 
+                    AgenteId = usuarioId 
+                };
+                
+                var solicitud = await _solicitudService.AsignarAgenteAsync(dto, adminId);
+                
+                return Ok(new 
+                { 
+                    message = "Solicitud asignada exitosamente",
+                    solicitud 
+                });
+            }
+            catch (BusinessException ex)
+            {
+                _logger.LogWarning(ex, "Regla de negocio violada al asignar solicitud {SolicitudId}", id);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                _logger.LogWarning(ex, "Solicitud o usuario no encontrado para asignación {SolicitudId}", id);
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al asignar solicitud {SolicitudId}", id);
+                return StatusCode(500, new { message = $"Error al asignar solicitud: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Desasignar gestor de una solicitud (Gestor asignado o Administradores)
+        /// </summary>
+        [HttpPost("{id}/desasignar")]
+        [Authorize(Roles = "AgenteArea,Administrador,SuperAdministrador")]
+        public async Task<IActionResult> DesasignarGestor(int id)
+        {
+            try
+            {
+                var usuarioId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                
+                _logger.LogInformation("Usuario {UsuarioId} intentando desasignar solicitud {SolicitudId}", usuarioId, id);
+                
+                var solicitud = await _solicitudService.DesasignarGestorAsync(id, usuarioId);
+                
+                return Ok(new 
+                { 
+                    message = "Gestor desasignado exitosamente",
+                    solicitud 
+                });
+            }
+            catch (BusinessException ex)
+            {
+                _logger.LogWarning(ex, "Regla de negocio violada al desasignar solicitud {SolicitudId}", id);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (UnauthorizedActionException ex)
+            {
+                _logger.LogWarning(ex, "Acceso denegado al desasignar solicitud {SolicitudId}", id);
+                return StatusCode(403, new { message = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                _logger.LogWarning(ex, "Solicitud {SolicitudId} no encontrada", id);
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al desasignar solicitud {SolicitudId}", id);
+                return StatusCode(500, new { message = $"Error al desasignar solicitud: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
         /// Cambiar estado de una solicitud (Agentes del área asignados y Administradores)
         /// </summary>
         [HttpPut("cambiar-estado")]
@@ -255,6 +431,51 @@ namespace Api.Controllers
             var agenteId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var solicitud = await _solicitudService.CambiarEstadoAsync(dto, agenteId);
             return Ok(solicitud);
+        }
+
+        /// <summary>
+        /// Cambiar estado de una solicitud (Alias con ruta simplificada)
+        /// </summary>
+        [HttpPut("{id}/estado")]
+        [Authorize(Roles = "AgenteArea,Administrador,SuperAdministrador")]
+        public async Task<IActionResult> CambiarEstadoSimplificado(int id, [FromBody] CambiarEstadoDto dto)
+        {
+            try
+            {
+                // Validar que el ID de la ruta coincida con el DTO
+                if (dto.SolicitudId != id)
+                {
+                    return BadRequest(new { message = "El ID de la solicitud no coincide con la ruta" });
+                }
+
+                var agenteId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                
+                _logger.LogInformation("Usuario {UsuarioId} cambiando estado de solicitud {SolicitudId} a {NuevoEstado}", 
+                    agenteId, id, dto.NuevoEstado);
+                
+                var solicitud = await _solicitudService.CambiarEstadoAsync(dto, agenteId);
+                
+                return Ok(new 
+                { 
+                    message = "Estado actualizado exitosamente",
+                    solicitud 
+                });
+            }
+            catch (BusinessException ex)
+            {
+                _logger.LogWarning(ex, "Regla de negocio violada al cambiar estado solicitud {SolicitudId}", id);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (UnauthorizedActionException ex)
+            {
+                _logger.LogWarning(ex, "Acceso denegado al cambiar estado solicitud {SolicitudId}", id);
+                return StatusCode(403, new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al cambiar estado solicitud {SolicitudId}", id);
+                return StatusCode(500, new { message = $"Error al cambiar estado: {ex.Message}" });
+            }
         }
 
         /// <summary>
@@ -418,7 +639,84 @@ namespace Api.Controllers
         }
 
         /// <summary>
-        /// Agregar comentario a una solicitud (Todos los usuarios autenticados)
+        /// Obtener comentarios de una solicitud (Solicitante, Gestor asignado, Admin)
+        /// </summary>
+        [HttpGet("{id}/comentarios")]
+        [Authorize]
+        public async Task<IActionResult> ObtenerComentarios(int id)
+        {
+            try
+            {
+                _logger.LogInformation("Obteniendo comentarios de solicitud {SolicitudId}", id);
+
+                var usuarioIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(usuarioIdClaim) || !int.TryParse(usuarioIdClaim, out int usuarioId))
+                {
+                    return Unauthorized(new { message = "Usuario no autenticado" });
+                }
+
+                // Obtener la solicitud con sus relaciones
+                var solicitud = await _context.Solicitudes
+                    .Include(s => s.Comentarios)
+                        .ThenInclude(c => c.Usuario)
+                            .ThenInclude(u => u.Area)
+                    .FirstOrDefaultAsync(s => s.Id == id);
+
+                if (solicitud == null)
+                {
+                    _logger.LogWarning("Solicitud {SolicitudId} no encontrada", id);
+                    return NotFound(new { message = "Solicitud no encontrada" });
+                }
+
+                // Validar permisos: Solicitante, Gestor asignado, o Admin
+                var usuario = await _context.Usuarios.FindAsync(usuarioId);
+                if (usuario == null)
+                {
+                    return Unauthorized(new { message = "Usuario no encontrado" });
+                }
+
+                bool esAdmin = usuario.Rol == Domain.Enums.RolEnum.Administrador || 
+                              usuario.Rol == Domain.Enums.RolEnum.SuperAdministrador;
+                bool esSolicitante = solicitud.SolicitanteId == usuarioId;
+                bool esGestorAsignado = solicitud.GestorAsignadoId == usuarioId;
+
+                if (!esAdmin && !esSolicitante && !esGestorAsignado)
+                {
+                    _logger.LogWarning("Usuario {UsuarioId} sin permisos para ver comentarios de solicitud {SolicitudId}", 
+                        usuarioId, id);
+                    return StatusCode(403, new { message = "No tienes permiso para ver los comentarios de esta solicitud" });
+                }
+
+                // Mapear comentarios a DTOs
+                var comentariosDto = solicitud.Comentarios
+                    .OrderBy(c => c.FechaCreacion)
+                    .Select(c => new ComentarioDto
+                    {
+                        Id = c.Id,
+                        Contenido = c.Texto,
+                        FechaCreacion = c.FechaCreacion,
+                        UsuarioId = c.UsuarioId,
+                        NombreUsuario = c.Usuario.Nombre,
+                        UsuarioRol = (int?)c.Usuario.Rol,
+                        UsuarioRolNombre = ObtenerNombreRol((int)c.Usuario.Rol),
+                        UsuarioDepartamento = c.Usuario.Area?.Nombre
+                    })
+                    .ToList();
+
+                _logger.LogInformation("Devolviendo {Count} comentarios para solicitud {SolicitudId}", 
+                    comentariosDto.Count, id);
+
+                return Ok(comentariosDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener comentarios de solicitud {SolicitudId}", id);
+                return StatusCode(500, new { message = "Error al obtener comentarios", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Agregar comentario a una solicitud (Solicitante, Gestor asignado, Admin)
         /// </summary>
         [HttpPost("{id}/comentarios")]
         [Authorize]
@@ -434,12 +732,35 @@ namespace Api.Controllers
                     return Unauthorized(new { message = "Usuario no autenticado" });
                 }
 
-                // Validar que la solicitud existe
-                var solicitud = await _context.Solicitudes.FindAsync(id);
+                // Validar que la solicitud existe y cargar con navegaciones necesarias
+                var solicitud = await _context.Solicitudes
+                    .Include(s => s.Solicitante)
+                    .Include(s => s.GestorAsignado)
+                    .FirstOrDefaultAsync(s => s.Id == id);
+
                 if (solicitud == null)
                 {
                     _logger.LogWarning("Solicitud {SolicitudId} no encontrada", id);
                     return NotFound(new { message = $"Solicitud {id} no encontrada" });
+                }
+
+                // Validar permisos: Solicitante, Gestor asignado, o Admin
+                var usuario = await _context.Usuarios.FindAsync(usuarioId);
+                if (usuario == null)
+                {
+                    return Unauthorized(new { message = "Usuario no encontrado" });
+                }
+
+                bool esAdmin = usuario.Rol == Domain.Enums.RolEnum.Administrador || 
+                              usuario.Rol == Domain.Enums.RolEnum.SuperAdministrador;
+                bool esSolicitante = solicitud.SolicitanteId == usuarioId;
+                bool esGestorAsignado = solicitud.GestorAsignadoId == usuarioId;
+
+                if (!esAdmin && !esSolicitante && !esGestorAsignado)
+                {
+                    _logger.LogWarning("Usuario {UsuarioId} sin permisos para comentar en solicitud {SolicitudId}", 
+                        usuarioId, id);
+                    return StatusCode(403, new { message = "No tienes permiso para comentar en esta solicitud" });
                 }
 
                 // Validar contenido del comentario
@@ -468,9 +789,13 @@ namespace Api.Controllers
                 _logger.LogInformation("Comentario {ComentarioId} creado exitosamente para solicitud {SolicitudId}", 
                     comentario.Id, id);
 
-                // Cargar el usuario para devolver en la respuesta
+                // Cargar el usuario con área para devolver en la respuesta
                 await _context.Entry(comentario)
                     .Reference(c => c.Usuario)
+                    .LoadAsync();
+                
+                await _context.Entry(comentario.Usuario)
+                    .Reference(u => u.Area)
                     .LoadAsync();
 
                 var comentarioDto = new ComentarioDto
@@ -479,7 +804,10 @@ namespace Api.Controllers
                     Contenido = comentario.Texto,
                     FechaCreacion = comentario.FechaCreacion,
                     UsuarioId = comentario.UsuarioId,
-                    NombreUsuario = comentario.Usuario.Nombre
+                    NombreUsuario = comentario.Usuario.Nombre,
+                    UsuarioRol = (int?)comentario.Usuario.Rol,
+                    UsuarioRolNombre = ObtenerNombreRol((int)comentario.Usuario.Rol),
+                    UsuarioDepartamento = comentario.Usuario.Area?.Nombre
                 };
 
                 return Ok(comentarioDto);
@@ -544,6 +872,18 @@ namespace Api.Controllers
                 _logger.LogError(ex, "Error al descargar archivo de solicitud {SolicitudId}", id);
                 return StatusCode(500, new { message = "Error al descargar archivo", error = ex.Message });
             }
+        }
+
+        private string ObtenerNombreRol(int rol)
+        {
+            return rol switch
+            {
+                1 => "Usuario",
+                2 => "Administrador",
+                3 => "Super Administrador",
+                4 => "Agente de Área",
+                _ => "Desconocido"
+            };
         }
     }
 }

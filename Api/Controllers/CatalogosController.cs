@@ -161,6 +161,17 @@ namespace Api.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Obtener gestores (Agentes) de un área específica (Solo administradores)
+        /// </summary>
+        [HttpGet("areas/{areaId}/gestores")]
+        [Authorize(Roles = "Administrador,SuperAdministrador")]
+        public async Task<IActionResult> GetGestoresPorArea(int areaId)
+        {
+            var gestores = await _catalogService.GetGestoresPorAreaAsync(areaId);
+            return Ok(gestores);
+        }
+
         #endregion
 
         #region Prioridades
