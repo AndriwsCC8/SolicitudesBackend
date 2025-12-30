@@ -4,6 +4,7 @@ using Application.Interfaces;
 using Infrastructure.Services;
 using Infrastructure.Data;
 using Domain.Entities;
+using Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,17 +21,20 @@ namespace Api.Controllers
         private readonly ILogger<SolicitudesController> _logger;
         private readonly IPdfExportService _pdfExportService;
         private readonly ApplicationDbContext _context;
+        private readonly IWebHostEnvironment _environment;
 
         public SolicitudesController(
             ISolicitudService solicitudService, 
             ILogger<SolicitudesController> logger,
             IPdfExportService pdfExportService,
-            ApplicationDbContext context)
+            ApplicationDbContext context,
+            IWebHostEnvironment environment)
         {
             _solicitudService = solicitudService;
             _logger = logger;
             _pdfExportService = pdfExportService;
             _context = context;
+            _environment = environment;
         }
 
         /// <summary>
@@ -38,7 +42,7 @@ namespace Api.Controllers
         /// </summary>
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> CrearSolicitud([FromBody] CrearSolicitudDto dto)
+        public async Task<IActionResult> CrearSolicitud([FromForm] CrearSolicitudDto dto)
         {
             try
             {
@@ -98,6 +102,54 @@ namespace Api.Controllers
             {
                 _logger.LogError(ex, "Error al crear solicitud. DTO: {@Dto}", dto);
                 throw; // El middleware de excepciones lo manejará
+            }
+        }
+
+        /// <summary>
+        /// Editar una solicitud existente (Solo el creador, estado Nueva, sin agente asignado)
+        /// </summary>
+        [HttpPut("{id}")]
+        [Authorize]
+        public async Task<IActionResult> EditarSolicitud(int id, [FromForm] EditarSolicitudDto dto)
+        {
+            try
+            {
+                var usuarioId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+                
+                if (usuarioId == 0)
+                {
+                    return Unauthorized(new { message = "Token inválido" });
+                }
+                
+                _logger.LogInformation("Usuario {UsuarioId} intentando editar solicitud {SolicitudId}", usuarioId, id);
+                
+                var solicitud = await _solicitudService.EditarSolicitudAsync(id, dto, usuarioId);
+                
+                return Ok(new 
+                { 
+                    message = "Solicitud actualizada correctamente",
+                    solicitud 
+                });
+            }
+            catch (UnauthorizedActionException ex)
+            {
+                _logger.LogWarning(ex, "Acceso denegado al editar solicitud {SolicitudId}", id);
+                return StatusCode(403, new { message = ex.Message });
+            }
+            catch (BusinessException ex)
+            {
+                _logger.LogWarning(ex, "Regla de negocio violada al editar solicitud {SolicitudId}", id);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                _logger.LogWarning(ex, "Solicitud {SolicitudId} no encontrada", id);
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al editar solicitud {SolicitudId}", id);
+                return StatusCode(500, new { message = $"Error al editar solicitud: {ex.Message}" });
             }
         }
 
@@ -233,15 +285,47 @@ namespace Api.Controllers
         /// Exportar solicitud a PDF (Administradores y SuperAdministrador)
         /// </summary>
         [HttpGet("{id}/export/pdf")]
-        [Authorize(Roles = "Administrador,SuperAdministrador")]
+        [Authorize]
         public async Task<IActionResult> ExportarPdf(int id)
         {
             try
             {
                 var usuarioId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                var usuarioRol = int.Parse(User.FindFirstValue("RolId") ?? "0");
+                var usuarioAreaId = User.FindFirstValue("AreaId");
+                
                 _logger.LogInformation("Usuario {UsuarioId} solicitando PDF de solicitud {SolicitudId}", usuarioId, id);
 
-                // Obtener la solicitud completa
+                // Obtener la solicitud para validar permisos
+                var solicitudEntity = await _context.Solicitudes
+                    .Include(s => s.Area)
+                    .Include(s => s.TipoSolicitud)
+                    .Include(s => s.Solicitante)
+                    .Include(s => s.GestorAsignado)
+                    .FirstOrDefaultAsync(s => s.Id == id);
+
+                if (solicitudEntity == null)
+                {
+                    _logger.LogWarning("Solicitud {SolicitudId} no encontrada para exportar", id);
+                    return NotFound(new { message = "Solicitud no encontrada" });
+                }
+
+                // Validar permisos
+                bool esAdmin = usuarioRol == 2; // Administrador
+                bool esSuperAdmin = usuarioRol == 3; // Super Administrador
+                bool esGestorAsignado = solicitudEntity.GestorAsignadoId == usuarioId;
+                bool esAgenteDelArea = usuarioRol == 4 && 
+                                       !string.IsNullOrEmpty(usuarioAreaId) && 
+                                       solicitudEntity.AreaId == int.Parse(usuarioAreaId);
+                bool esSolicitante = solicitudEntity.SolicitanteId == usuarioId;
+
+                if (!esAdmin && !esSuperAdmin && !esGestorAsignado && !esAgenteDelArea && !esSolicitante)
+                {
+                    _logger.LogWarning("Usuario {UsuarioId} sin permisos para exportar solicitud {SolicitudId}", usuarioId, id);
+                    return Forbid("No tienes permisos para exportar esta solicitud");
+                }
+
+                // Obtener la solicitud completa para exportar
                 var solicitud = await _solicitudService.ObtenerPorIdAsync(id, usuarioId);
 
                 if (solicitud == null)
@@ -266,18 +350,50 @@ namespace Api.Controllers
         }
 
         /// <summary>
-        /// Exportar solicitud a PNG (Administradores y SuperAdministrador)
+        /// Exportar solicitud a PNG (Todos los usuarios autenticados con permisos)
         /// </summary>
         [HttpGet("{id}/export/png")]
-        [Authorize(Roles = "Administrador,SuperAdministrador")]
+        [Authorize]
         public async Task<IActionResult> ExportarPng(int id)
         {
             try
             {
                 var usuarioId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                var usuarioRol = int.Parse(User.FindFirstValue("RolId") ?? "0");
+                var usuarioAreaId = User.FindFirstValue("AreaId");
+                
                 _logger.LogInformation("Usuario {UsuarioId} solicitando PNG de solicitud {SolicitudId}", usuarioId, id);
 
-                // Obtener la solicitud completa
+                // Obtener la solicitud para validar permisos
+                var solicitudEntity = await _context.Solicitudes
+                    .Include(s => s.Area)
+                    .Include(s => s.TipoSolicitud)
+                    .Include(s => s.Solicitante)
+                    .Include(s => s.GestorAsignado)
+                    .FirstOrDefaultAsync(s => s.Id == id);
+
+                if (solicitudEntity == null)
+                {
+                    _logger.LogWarning("Solicitud {SolicitudId} no encontrada para exportar", id);
+                    return NotFound(new { message = "Solicitud no encontrada" });
+                }
+
+                // Validar permisos
+                bool esAdmin = usuarioRol == 2; // Administrador
+                bool esSuperAdmin = usuarioRol == 3; // Super Administrador
+                bool esGestorAsignado = solicitudEntity.GestorAsignadoId == usuarioId;
+                bool esAgenteDelArea = usuarioRol == 4 && 
+                                       !string.IsNullOrEmpty(usuarioAreaId) && 
+                                       solicitudEntity.AreaId == int.Parse(usuarioAreaId);
+                bool esSolicitante = solicitudEntity.SolicitanteId == usuarioId;
+
+                if (!esAdmin && !esSuperAdmin && !esGestorAsignado && !esAgenteDelArea && !esSolicitante)
+                {
+                    _logger.LogWarning("Usuario {UsuarioId} sin permisos para exportar solicitud {SolicitudId}", usuarioId, id);
+                    return Forbid("No tienes permisos para exportar esta solicitud");
+                }
+
+                // Obtener la solicitud completa para exportar
                 var solicitud = await _solicitudService.ObtenerPorIdAsync(id, usuarioId);
 
                 if (solicitud == null)
@@ -372,6 +488,61 @@ namespace Api.Controllers
             {
                 _logger.LogError(ex, "Error al agregar comentario a solicitud {SolicitudId}", id);
                 return StatusCode(500, new { message = "Error al agregar comentario", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Descargar archivo adjunto de una solicitud (Todos los usuarios autenticados)
+        /// </summary>
+        [HttpGet("{id}/archivo/download")]
+        [Authorize]
+        public async Task<IActionResult> DescargarArchivo(int id)
+        {
+            try
+            {
+                var solicitud = await _context.Solicitudes
+                    .FirstOrDefaultAsync(s => s.Id == id);
+                    
+                if (solicitud == null)
+                {
+                    _logger.LogWarning("Solicitud {SolicitudId} no encontrada para descarga", id);
+                    return NotFound(new { message = "Solicitud no encontrada" });
+                }
+                
+                // Verificar que tenga archivo
+                if (string.IsNullOrEmpty(solicitud.ArchivoRuta))
+                {
+                    _logger.LogWarning("Solicitud {SolicitudId} no tiene archivo adjunto", id);
+                    return NotFound(new { message = "Esta solicitud no tiene archivo adjunto" });
+                }
+                
+                // Construir ruta completa del archivo
+                var filePath = Path.Combine(_environment.WebRootPath, solicitud.ArchivoRuta.TrimStart('/'));
+                
+                _logger.LogInformation("Intentando descargar archivo: {FilePath}", filePath);
+                
+                // Verificar que el archivo existe físicamente
+                if (!System.IO.File.Exists(filePath))
+                {
+                    _logger.LogError("Archivo físico no encontrado: {FilePath}", filePath);
+                    return NotFound(new { message = "El archivo físico no existe en el servidor" });
+                }
+                
+                // Leer el archivo
+                var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+                
+                // Determinar el content type
+                var contentType = solicitud.ArchivoContentType ?? "application/octet-stream";
+                
+                _logger.LogInformation("Archivo descargado exitosamente: {FileName}", solicitud.ArchivoNombre);
+                
+                // Devolver el archivo con el nombre original
+                return File(fileBytes, contentType, solicitud.ArchivoNombre);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al descargar archivo de solicitud {SolicitudId}", id);
+                return StatusCode(500, new { message = "Error al descargar archivo", error = ex.Message });
             }
         }
     }
