@@ -21,6 +21,9 @@ namespace Application.DTOs.Solicitudes
         public int SolicitanteId { get; set; }
         public string Solicitante { get; set; } = string.Empty;
         public string SolicitanteEmail { get; set; } = string.Empty;
+        public string? SolicitanteDepartamento { get; set; }
+        public int? SolicitanteRol { get; set; }
+        public string? SolicitanteRolNombre { get; set; }
         
         // Información del Gestor Asignado (opcional)
         public int? GestorAsignadoId { get; set; }
@@ -34,7 +37,17 @@ namespace Application.DTOs.Solicitudes
         // Campos adicionales
         public string? MotivoRechazo { get; set; }
         
+        // Archivo adjunto (único)
+        public ArchivoAdjuntoDto? Archivo { get; set; }
+        
         // Comentarios
         public List<Application.DTOs.Comentarios.ComentarioDto> Comentarios { get; set; } = new();
+    }
+
+    public class ArchivoAdjuntoDto
+    {
+        public string NombreArchivo { get; set; } = string.Empty;
+        public string? ContentType { get; set; }
+        public long? TamanoBytes { get; set; }
     }
 }

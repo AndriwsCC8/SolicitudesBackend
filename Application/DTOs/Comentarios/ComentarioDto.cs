@@ -7,5 +7,8 @@ namespace Application.DTOs.Comentarios
         public DateTime FechaCreacion { get; set; }
         public int UsuarioId { get; set; }
         public string NombreUsuario { get; set; } = string.Empty;
+        public int? UsuarioRol { get; set; }
+        public string? UsuarioRolNombre { get; set; }
+        public string? UsuarioDepartamento { get; set; }
     }
 }

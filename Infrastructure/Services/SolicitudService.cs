@@ -107,6 +107,30 @@ namespace Infrastructure.Services
                 FechaCreacion = DateTime.Now
             };
 
+            // Guardar archivo si existe
+            if (dto.Archivo != null && dto.Archivo.Length > 0)
+            {
+                _logger.LogInformation("Procesando archivo adjunto: {FileName}, Tamaño: {Size} bytes", 
+                    dto.Archivo.FileName, dto.Archivo.Length);
+                
+                var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+                Directory.CreateDirectory(uploadPath);
+                
+                var fileName = $"{Guid.NewGuid()}_{dto.Archivo.FileName}";
+                var filePath = Path.Combine(uploadPath, fileName);
+                
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await dto.Archivo.CopyToAsync(stream);
+                }
+                
+                solicitud.ArchivoNombre = dto.Archivo.FileName;
+                solicitud.ArchivoRuta = $"/uploads/{fileName}";
+                solicitud.ArchivoContentType = dto.Archivo.ContentType;
+                
+                _logger.LogInformation("Archivo guardado: {FilePath}", filePath);
+            }
+
             _context.Solicitudes.Add(solicitud);
             _logger.LogInformation("Guardando solicitud en la base de datos...");
             
@@ -348,11 +372,35 @@ namespace Infrastructure.Services
             if (!esAdmin && !EsTransicionValida(solicitud.Estado, nuevoEstado))
                 throw new BusinessException($"Transición no válida de {solicitud.Estado} a {nuevoEstado}");
 
+            // Validar que se proporcione motivo si el estado es Rechazada
+            if (nuevoEstado == EstadoSolicitudEnum.Rechazada && string.IsNullOrWhiteSpace(dto.MotivoRechazo))
+            {
+                throw new BusinessException("Debes proporcionar un motivo para rechazar la solicitud");
+            }
+
             var estadoAnterior = solicitud.Estado;
             solicitud.Estado = nuevoEstado;
 
-            await RegistrarHistorialAsync(solicitud.Id, agenteId, estadoAnterior, nuevoEstado, dto.Observacion);
+            // Guardar motivo de rechazo si el estado es Rechazada
+            if (nuevoEstado == EstadoSolicitudEnum.Rechazada)
+            {
+                solicitud.MotivoRechazo = dto.MotivoRechazo;
+                solicitud.FechaCierre = DateTime.Now;
+                _logger.LogInformation($"Guardando MotivoRechazo: '{dto.MotivoRechazo}' para solicitud {solicitud.Id}");
+            }
+            else
+            {
+                // Limpiar motivo si cambia a otro estado
+                solicitud.MotivoRechazo = null;
+            }
+
+            // Marcar explícitamente como modificado
+            _context.Entry(solicitud).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
+            
+            await RegistrarHistorialAsync(solicitud.Id, agenteId, estadoAnterior, nuevoEstado, dto.MotivoRechazo);
             await _context.SaveChangesAsync();
+            
+            _logger.LogInformation($"Cambios guardados. Solicitud {solicitud.Id} - Estado: {solicitud.Estado}, MotivoRechazo: '{solicitud.MotivoRechazo}'");
 
             return MapToDto(solicitud);
         }
@@ -447,10 +495,12 @@ namespace Infrastructure.Services
         private bool EsTransicionValida(EstadoSolicitudEnum estadoActual, EstadoSolicitudEnum estadoNuevo)
         {
             // Transiciones permitidas para agentes del área:
-            // Nueva → EnProceso, Resuelta, Rechazada o Cancelada (permite resolver directamente)
+            // Nueva → EnProceso, Resuelta, Rechazada o Cancelada
             // EnProceso → Resuelta, Rechazada o Cancelada  
-            // Resuelta → Cerrada o Cancelada
-            // Los administradores NO pasan por esta validación
+            // Resuelta → EnProceso (reabrir), Rechazada, Cerrada o Cancelada
+            // Cancelada ↔ Rechazada (pueden corregir entre estados cerrados)
+            // Cerrada → Sin cambios (estado final inmutable para agentes)
+            // Los administradores NO pasan por esta validación (pueden hacer cualquier transición)
             return estadoActual switch
             {
                 EstadoSolicitudEnum.Nueva => estadoNuevo == EstadoSolicitudEnum.EnProceso || 
@@ -460,8 +510,13 @@ namespace Infrastructure.Services
                 EstadoSolicitudEnum.EnProceso => estadoNuevo == EstadoSolicitudEnum.Resuelta ||
                                                    estadoNuevo == EstadoSolicitudEnum.Rechazada ||
                                                    estadoNuevo == EstadoSolicitudEnum.Cancelada,
-                EstadoSolicitudEnum.Resuelta => estadoNuevo == EstadoSolicitudEnum.Cerrada ||
+                EstadoSolicitudEnum.Resuelta => estadoNuevo == EstadoSolicitudEnum.EnProceso ||
+                                                 estadoNuevo == EstadoSolicitudEnum.Rechazada ||
+                                                 estadoNuevo == EstadoSolicitudEnum.Cerrada ||
                                                  estadoNuevo == EstadoSolicitudEnum.Cancelada,
+                EstadoSolicitudEnum.Cancelada => estadoNuevo == EstadoSolicitudEnum.Rechazada,
+                EstadoSolicitudEnum.Rechazada => estadoNuevo == EstadoSolicitudEnum.Cancelada,
+                EstadoSolicitudEnum.Cerrada => false, // Estado final inmutable para agentes
                 _ => false
             };
         }
@@ -489,6 +544,9 @@ namespace Infrastructure.Services
                 SolicitanteId = solicitud.SolicitanteId,
                 Solicitante = solicitud.Solicitante?.Nombre ?? string.Empty,
                 SolicitanteEmail = solicitud.Solicitante?.Email ?? string.Empty,
+                SolicitanteDepartamento = solicitud.Solicitante?.Area?.Nombre,
+                SolicitanteRol = (int?)solicitud.Solicitante?.Rol,
+                SolicitanteRolNombre = solicitud.Solicitante != null ? ObtenerNombreRol((int)solicitud.Solicitante.Rol) : null,
                 
                 // Gestor Asignado (opcional) con ID y email
                 GestorAsignadoId = solicitud.GestorAsignadoId,
@@ -502,6 +560,14 @@ namespace Infrastructure.Services
                 // Campos adicionales
                 MotivoRechazo = solicitud.MotivoRechazo,
                 
+                // Archivo adjunto
+                Archivo = !string.IsNullOrEmpty(solicitud.ArchivoNombre) ? new Application.DTOs.Solicitudes.ArchivoAdjuntoDto
+                {
+                    NombreArchivo = solicitud.ArchivoNombre,
+                    ContentType = solicitud.ArchivoContentType,
+                    TamanoBytes = null // No tenemos el tamaño guardado en BD
+                } : null,
+                
                 // Comentarios
                 Comentarios = solicitud.Comentarios?.Select(c => new Application.DTOs.Comentarios.ComentarioDto
                 {
@@ -509,8 +575,145 @@ namespace Infrastructure.Services
                     Contenido = c.Texto,
                     FechaCreacion = c.FechaCreacion,
                     UsuarioId = c.UsuarioId,
-                    NombreUsuario = c.Usuario?.Nombre ?? string.Empty
+                    NombreUsuario = c.Usuario?.Nombre ?? string.Empty,
+                    UsuarioRol = (int?)c.Usuario?.Rol,
+                    UsuarioRolNombre = c.Usuario != null ? ObtenerNombreRol((int)c.Usuario.Rol) : null,
+                    UsuarioDepartamento = c.Usuario?.Area?.Nombre
                 }).OrderBy(c => c.FechaCreacion).ToList() ?? new List<Application.DTOs.Comentarios.ComentarioDto>()
+            };
+        }
+
+        public async Task<SolicitudDto> EditarSolicitudAsync(int solicitudId, EditarSolicitudDto dto, int usuarioId)
+        {
+            var solicitud = await _context.Solicitudes
+                .Include(s => s.Area)
+                .Include(s => s.TipoSolicitud)
+                .Include(s => s.Solicitante)
+                .Include(s => s.GestorAsignado)
+                .Include(s => s.Comentarios)
+                    .ThenInclude(c => c.Usuario)
+                        .ThenInclude(u => u.Area)
+                .FirstOrDefaultAsync(s => s.Id == solicitudId);
+            
+            if (solicitud == null)
+                throw new NotFoundException("Solicitud no encontrada");
+            
+            // VALIDACIÓN 1: Solo el creador puede editar
+            if (solicitud.SolicitanteId != usuarioId)
+                throw new UnauthorizedActionException("Solo puedes editar tus propias solicitudes");
+            
+            // VALIDACIÓN 2: Solo si está en estado Nueva
+            if (solicitud.Estado != EstadoSolicitudEnum.Nueva)
+                throw new BusinessException("Solo puedes editar solicitudes en estado 'Nueva'");
+            
+            // VALIDACIÓN 3: Solo si no tiene agente asignado
+            if (solicitud.GestorAsignadoId.HasValue)
+                throw new BusinessException("No puedes editar una solicitud que ya tiene agente asignado");
+            
+            // Guardar valores anteriores para el comentario de historial
+            var cambios = new List<string>();
+            
+            if (solicitud.Asunto != dto.Asunto)
+                cambios.Add($"Asunto: '{solicitud.Asunto}' → '{dto.Asunto}'");
+            
+            if (solicitud.Descripcion != dto.Descripcion)
+                cambios.Add("Descripción modificada");
+            
+            if ((int)solicitud.Prioridad != dto.Prioridad)
+            {
+                var prioridadAnterior = solicitud.Prioridad == PrioridadEnum.Baja ? "Baja" : 
+                                       solicitud.Prioridad == PrioridadEnum.Media ? "Media" : "Alta";
+                var prioridadNueva = dto.Prioridad == 1 ? "Baja" : dto.Prioridad == 2 ? "Media" : "Alta";
+                cambios.Add($"Prioridad: {prioridadAnterior} → {prioridadNueva}");
+            }
+            
+            // Actualizar campos
+            solicitud.Asunto = dto.Asunto;
+            solicitud.Descripcion = dto.Descripcion;
+            solicitud.Prioridad = (PrioridadEnum)dto.Prioridad;
+            
+            // Manejar archivo adjunto
+            if (dto.EliminarArchivo && !string.IsNullOrEmpty(solicitud.ArchivoRuta))
+            {
+                // Eliminar archivo físico
+                var archivoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", solicitud.ArchivoRuta.TrimStart('/').Replace("/", "\\"));
+                if (File.Exists(archivoPath))
+                {
+                    File.Delete(archivoPath);
+                    _logger.LogInformation("Archivo eliminado: {ArchivoPath}", archivoPath);
+                }
+                
+                solicitud.ArchivoNombre = null;
+                solicitud.ArchivoRuta = null;
+                solicitud.ArchivoContentType = null;
+                cambios.Add("Archivo adjunto eliminado");
+            }
+            else if (dto.Archivo != null && dto.Archivo.Length > 0)
+            {
+                // Eliminar archivo anterior si existe
+                if (!string.IsNullOrEmpty(solicitud.ArchivoRuta))
+                {
+                    var archivoAnterior = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", solicitud.ArchivoRuta.TrimStart('/').Replace("/", "\\"));
+                    if (File.Exists(archivoAnterior))
+                    {
+                        File.Delete(archivoAnterior);
+                        _logger.LogInformation("Archivo anterior eliminado: {ArchivoPath}", archivoAnterior);
+                    }
+                }
+                
+                // Guardar nuevo archivo
+                var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+                Directory.CreateDirectory(uploadPath);
+                
+                var fileName = $"{Guid.NewGuid()}_{dto.Archivo.FileName}";
+                var filePath = Path.Combine(uploadPath, fileName);
+                
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await dto.Archivo.CopyToAsync(stream);
+                }
+                
+                solicitud.ArchivoNombre = dto.Archivo.FileName;
+                solicitud.ArchivoRuta = $"/uploads/{fileName}";
+                solicitud.ArchivoContentType = dto.Archivo.ContentType;
+                
+                _logger.LogInformation("Nuevo archivo guardado: {FileName}", fileName);
+                cambios.Add($"Archivo actualizado: {dto.Archivo.FileName}");
+            }
+            
+            // Agregar comentario de historial si hubo cambios
+            if (cambios.Any())
+            {
+                var comentario = new Comentario
+                {
+                    SolicitudId = solicitudId,
+                    UsuarioId = usuarioId,
+                    Texto = $"📝 Solicitud editada:\n{string.Join("\n", cambios)}",
+                    FechaCreacion = DateTime.Now
+                };
+                
+                _context.Comentarios.Add(comentario);
+                _logger.LogInformation("Comentario de edición agregado para solicitud {SolicitudId}", solicitudId);
+            }
+            
+            _context.Entry(solicitud).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
+            await _context.SaveChangesAsync();
+            
+            _logger.LogInformation("Solicitud {SolicitudId} editada exitosamente", solicitudId);
+            
+            // Devolver DTO actualizado
+            return MapToDto(solicitud);
+        }
+
+        private string ObtenerNombreRol(int rol)
+        {
+            return rol switch
+            {
+                1 => "Usuario",
+                2 => "Administrador",
+                3 => "Super Administrador",
+                4 => "Agente de Área",
+                _ => "Desconocido"
             };
         }
     }

@@ -16,5 +16,6 @@ namespace Application.Interfaces
         Task<SolicitudDto> CambiarEstadoAsync(CambiarEstadoDto dto, int agenteId);
         Task<SolicitudDto> RechazarAsync(RechazarSolicitudDto dto, int agenteId);
         Task<SolicitudDto> CerrarAsync(CerrarSolicitudDto dto, int usuarioId);
+        Task<SolicitudDto> EditarSolicitudAsync(int solicitudId, EditarSolicitudDto dto, int usuarioId);
     }
 }
