@@ -371,10 +371,10 @@ namespace Infrastructure.Services
             if (solicitud == null)
                 throw new NotFoundException("Solicitud no encontrada");
 
-            if (solicitud.Estado == EstadoSolicitudEnum.Cerrada || 
-                solicitud.Estado == EstadoSolicitudEnum.Rechazada ||
-                solicitud.Estado == EstadoSolicitudEnum.Cancelada)
-                throw new BusinessException("No se puede asignar agente a una solicitud cerrada, rechazada o cancelada");
+            // Validar que no esté resuelta ni rechazada (permite reasignación en otros estados)
+            if (solicitud.Estado == EstadoSolicitudEnum.Resuelta || 
+                solicitud.Estado == EstadoSolicitudEnum.Rechazada)
+                throw new BusinessException("No se puede asignar/reasignar una solicitud resuelta o rechazada");
 
             var agente = await _context.Usuarios
                 .FirstOrDefaultAsync(u => u.Id == dto.AgenteId && u.Rol == RolEnum.AgenteArea && u.Activo);
@@ -386,17 +386,35 @@ namespace Infrastructure.Services
                 throw new BusinessException("El agente no pertenece al área de la solicitud");
 
             var estadoAnterior = solicitud.Estado;
+            var gestorAnterior = solicitud.GestorAsignado?.Nombre;
+            var esReasignacion = solicitud.GestorAsignadoId.HasValue;
+
+            // Asignar o reasignar
             solicitud.GestorAsignadoId = dto.AgenteId;
 
+            // Si está en estado Nueva, cambiar a EnProceso
             if (solicitud.Estado == EstadoSolicitudEnum.Nueva)
             {
                 solicitud.Estado = EstadoSolicitudEnum.EnProceso;
                 await RegistrarHistorialAsync(solicitud.Id, adminId, estadoAnterior, EstadoSolicitudEnum.EnProceso,
-                    $"Asignado a {agente.Nombre}");
+                    esReasignacion 
+                        ? $"Reasignado de {gestorAnterior} a {agente.Nombre}"
+                        : $"Asignado a {agente.Nombre}");
+            }
+            else
+            {
+                // Si ya estaba en otro estado (EnProceso, Cancelada, Cerrada), mantener el estado pero registrar la reasignación
+                await RegistrarHistorialAsync(solicitud.Id, adminId, estadoAnterior, estadoAnterior,
+                    esReasignacion 
+                        ? $"Reasignado de {gestorAnterior} a {agente.Nombre}"
+                        : $"Asignado a {agente.Nombre}");
             }
 
             await _context.SaveChangesAsync();
             await _context.Entry(solicitud).Reference(s => s.GestorAsignado).LoadAsync();
+
+            _logger.LogInformation("Solicitud {SolicitudId} {Accion}. Gestor: {Gestor}", 
+                solicitud.Id, esReasignacion ? "reasignada" : "asignada", agente.Nombre);
 
             return MapToDto(solicitud);
         }
