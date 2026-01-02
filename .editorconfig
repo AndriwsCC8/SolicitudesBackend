@@ -1,0 +1,4 @@
+[*.cs]
+
+# CA1848: Usar los delegados LoggerMessage
+dotnet_diagnostic.CA1848.severity = none

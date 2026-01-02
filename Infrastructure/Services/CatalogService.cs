@@ -125,7 +125,7 @@ namespace Infrastructure.Services
                     Nombre = t.Nombre,
                     Descripcion = t.Descripcion,
                     AreaId = t.AreaId,
-                    AreaNombre = t.Area.Nombre,
+                    AreaNombre = t.Area != null ? t.Area.Nombre : null,
                     Activo = t.Activo
                 })
                 .ToListAsync();
@@ -142,7 +142,7 @@ namespace Infrastructure.Services
                     Nombre = t.Nombre,
                     Descripcion = t.Descripcion,
                     AreaId = t.AreaId,
-                    AreaNombre = t.Area.Nombre,
+                    AreaNombre = t.Area != null ? t.Area.Nombre : null,
                     Activo = t.Activo
                 })
                 .ToListAsync();
@@ -214,7 +214,7 @@ namespace Infrastructure.Services
                 Nombre = tipo.Nombre,
                 Descripcion = tipo.Descripcion,
                 AreaId = tipo.AreaId,
-                AreaNombre = tipo.Area.Nombre,
+                AreaNombre = tipo.Area?.Nombre,
                 Activo = tipo.Activo
             };
         }

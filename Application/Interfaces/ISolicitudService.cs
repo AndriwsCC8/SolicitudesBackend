@@ -9,6 +9,7 @@ namespace Application.Interfaces
         Task<SolicitudDto?> ObtenerPorIdAsync(int solicitudId, int usuarioId);
         Task<IEnumerable<SolicitudDto>> ObtenerPorUsuarioAsync(int usuarioId);
         Task<IEnumerable<SolicitudDto>> ObtenerPorAreaAsync(int areaId);
+        Task<IEnumerable<SolicitudDto>> ObtenerBandejaAgenteAsync(int usuarioId, int areaId);
         Task<IEnumerable<SolicitudDto>> ObtenerTodasAsync();
         
         // Workflow

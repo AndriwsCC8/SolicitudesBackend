@@ -41,6 +41,11 @@ namespace Infrastructure.Services
                 _logger.LogInformation("TipoSolicitud encontrado: {Nombre}, AreaId: {AreaId}", 
                     tipoSolicitud.Nombre, tipoSolicitud.AreaId);
 
+                _logger.LogInformation("🔍 Creando solicitud - Tipo: {TipoNombre}, AreaId: {AreaId}, Es Otro: {EsOtro}", 
+                    tipoSolicitud.Nombre, 
+                    tipoSolicitud.AreaId, 
+                    tipoSolicitud.Nombre == "Otro");
+
                 // Obtener usuario
                 var usuario = await _context.Usuarios.FindAsync(usuarioId);
                 if (usuario == null)
@@ -93,19 +98,37 @@ namespace Infrastructure.Services
 
                 _logger.LogInformation("Generando solicitud con número: {Numero}", numeroSolicitud);
 
+                // Determinar AreaId según el tipo de solicitud
+                int? areaIdParaSolicitud;
+                if (tipoSolicitud.AreaId.HasValue)
+                {
+                    // Tipo normal con área específica
+                    areaIdParaSolicitud = tipoSolicitud.AreaId.Value;
+                    _logger.LogInformation("Solicitud tipo '{Tipo}' con área específica: {AreaId}", 
+                        tipoSolicitud.Nombre, areaIdParaSolicitud);
+                }
+                else
+                {
+                    // Tipo "Otro" sin área específica - usar área del solicitante (puede ser null)
+                    areaIdParaSolicitud = usuario.AreaId;
+                    _logger.LogInformation("✅ Solicitud tipo 'Otro' - AreaId: {AreaId} (Usuario: {AreaIdUsuario})", 
+                        areaIdParaSolicitud, usuario.AreaId);
+                }
+
                 // Crear la solicitud
                 var solicitud = new Solicitud
                 {
                     Numero = numeroSolicitud,
-                Asunto = dto.Asunto,
-                Descripcion = dto.Descripcion,
-                Prioridad = (PrioridadEnum)dto.Prioridad,
-                Estado = EstadoSolicitudEnum.Nueva,
-                TipoSolicitudId = dto.TipoSolicitudId,
-                AreaId = tipoSolicitud.AreaId,
-                SolicitanteId = usuarioId,
-                FechaCreacion = DateTime.Now
-            };
+                    Asunto = dto.Asunto,
+                    Descripcion = dto.Descripcion,
+                    Prioridad = (PrioridadEnum)dto.Prioridad,
+                    Estado = EstadoSolicitudEnum.Nueva,
+                    TipoSolicitudId = dto.TipoSolicitudId,
+                    AreaId = areaIdParaSolicitud,
+                    SolicitanteId = usuarioId,
+                    FechaCreacion = DateTime.Now
+                    // GestorAsignadoId queda NULL - se asignará manualmente por admin si es "Otro"
+                };
 
             // Guardar archivo si existe
             if (dto.Archivo != null && dto.Archivo.Length > 0)
@@ -287,6 +310,23 @@ namespace Infrastructure.Services
             return solicitudes.Select(MapToDto);
         }
 
+        public async Task<IEnumerable<SolicitudDto>> ObtenerBandejaAgenteAsync(int usuarioId, int areaId)
+        {
+            var solicitudes = await _context.Solicitudes
+                .Include(s => s.Area)
+                .Include(s => s.TipoSolicitud)
+                .Include(s => s.Solicitante)
+                .Include(s => s.GestorAsignado)
+                .Where(s => 
+                    s.GestorAsignadoId == usuarioId ||  // Asignadas directamente al agente
+                    (s.TipoSolicitud.AreaId == areaId && s.TipoSolicitud.Nombre != "Otro") // De su área pero NO tipo "Otro"
+                )
+                .OrderByDescending(s => s.FechaCreacion)
+                .ToListAsync();
+
+            return solicitudes.Select(MapToDto);
+        }
+
         public async Task<IEnumerable<SolicitudDto>> ObtenerTodasAsync()
         {
             var solicitudes = await _context.Solicitudes
@@ -371,32 +411,71 @@ namespace Infrastructure.Services
             if (solicitud == null)
                 throw new NotFoundException("Solicitud no encontrada");
 
-            if (solicitud.Estado == EstadoSolicitudEnum.Cerrada || 
-                solicitud.Estado == EstadoSolicitudEnum.Rechazada ||
-                solicitud.Estado == EstadoSolicitudEnum.Cancelada)
-                throw new BusinessException("No se puede asignar agente a una solicitud cerrada, rechazada o cancelada");
+            // Validar que no esté resuelta ni rechazada (permite reasignación en otros estados)
+            if (solicitud.Estado == EstadoSolicitudEnum.Resuelta || 
+                solicitud.Estado == EstadoSolicitudEnum.Rechazada)
+                throw new BusinessException("No se puede asignar/reasignar una solicitud resuelta o rechazada");
+
+            _logger.LogInformation($"🔍 Buscando agente con ID: {dto.AgenteId}");
+            _logger.LogInformation($"🔍 Valor esperado RolEnum.AgenteArea: {(int)RolEnum.AgenteArea}");
+            
+            // Primero buscar el usuario sin restricciones para diagnóstico
+            var usuarioDebug = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == dto.AgenteId);
+            if (usuarioDebug != null)
+            {
+                _logger.LogInformation($"🔍 Usuario encontrado - Id: {usuarioDebug.Id}, Nombre: {usuarioDebug.Nombre}, Rol: {usuarioDebug.Rol} (int: {(int)usuarioDebug.Rol}), Activo: {usuarioDebug.Activo}");
+            }
+            else
+            {
+                _logger.LogWarning($"🔍 Usuario con ID {dto.AgenteId} NO EXISTE en base de datos");
+            }
 
             var agente = await _context.Usuarios
                 .FirstOrDefaultAsync(u => u.Id == dto.AgenteId && u.Rol == RolEnum.AgenteArea && u.Activo);
 
+            _logger.LogInformation($"🔍 Resultado query con filtros (Rol=AgenteArea, Activo=true): {(agente != null ? "ENCONTRADO" : "NO ENCONTRADO")}");
+
             if (agente == null)
                 throw new NotFoundException("Agente no encontrado o no tiene el rol AgenteArea");
 
-            if (agente.AreaId != solicitud.AreaId)
-                throw new BusinessException("El agente no pertenece al área de la solicitud");
+            // Validar que el agente pertenece al área SOLO si NO es tipo "Otro"
+            if (solicitud.TipoSolicitud.Nombre != "Otro")
+            {
+                if (agente.AreaId != solicitud.AreaId)
+                    throw new BusinessException("El agente no pertenece al área de la solicitud");
+            }
+            // Si es tipo "Otro", permitir cualquier agente de cualquier área
 
             var estadoAnterior = solicitud.Estado;
+            var gestorAnterior = solicitud.GestorAsignado?.Nombre;
+            var esReasignacion = solicitud.GestorAsignadoId.HasValue;
+
+            // Asignar o reasignar
             solicitud.GestorAsignadoId = dto.AgenteId;
 
+            // Si está en estado Nueva, cambiar a EnProceso
             if (solicitud.Estado == EstadoSolicitudEnum.Nueva)
             {
                 solicitud.Estado = EstadoSolicitudEnum.EnProceso;
                 await RegistrarHistorialAsync(solicitud.Id, adminId, estadoAnterior, EstadoSolicitudEnum.EnProceso,
-                    $"Asignado a {agente.Nombre}");
+                    esReasignacion 
+                        ? $"Reasignado de {gestorAnterior} a {agente.Nombre}"
+                        : $"Asignado a {agente.Nombre}");
+            }
+            else
+            {
+                // Si ya estaba en otro estado (EnProceso, Cancelada, Cerrada), mantener el estado pero registrar la reasignación
+                await RegistrarHistorialAsync(solicitud.Id, adminId, estadoAnterior, estadoAnterior,
+                    esReasignacion 
+                        ? $"Reasignado de {gestorAnterior} a {agente.Nombre}"
+                        : $"Asignado a {agente.Nombre}");
             }
 
             await _context.SaveChangesAsync();
             await _context.Entry(solicitud).Reference(s => s.GestorAsignado).LoadAsync();
+
+            _logger.LogInformation("Solicitud {SolicitudId} {Accion}. Gestor: {Gestor}", 
+                solicitud.Id, esReasignacion ? "reasignada" : "asignada", agente.Nombre);
 
             return MapToDto(solicitud);
         }
@@ -474,13 +553,14 @@ namespace Infrastructure.Services
             if (agente == null)
                 throw new NotFoundException("Agente no encontrado");
 
-            // Permitir si es Administrador/SuperAdministrador O si es AgenteArea del área correcta
+            // Permitir si es Administrador/SuperAdministrador O si está asignado a la solicitud O si es AgenteArea del área correcta
             bool esAdmin = agente.Rol == RolEnum.Administrador || agente.Rol == RolEnum.SuperAdministrador;
+            bool estaAsignado = solicitud.GestorAsignadoId == agenteId;
             bool esAgenteDelArea = agente.Rol == RolEnum.AgenteArea && agente.AreaId == solicitud.AreaId;
 
-            if (!esAdmin && !esAgenteDelArea)
+            if (!esAdmin && !estaAsignado && !esAgenteDelArea)
             {
-                throw new UnauthorizedActionException("No tienes permiso para gestionar solicitudes de esta área");
+                throw new UnauthorizedActionException("No tienes permiso para gestionar esta solicitud");
             }
 
             var nuevoEstado = (EstadoSolicitudEnum)dto.NuevoEstado;
@@ -538,13 +618,14 @@ namespace Infrastructure.Services
             if (agente == null)
                 throw new NotFoundException("Agente no encontrado");
 
-            // Permitir si es Administrador/SuperAdministrador O si es AgenteArea del área correcta
+            // Permitir si es Administrador/SuperAdministrador O si está asignado a la solicitud O si es AgenteArea del área correcta
             bool esAdmin = agente.Rol == RolEnum.Administrador || agente.Rol == RolEnum.SuperAdministrador;
+            bool estaAsignado = solicitud.GestorAsignadoId == agenteId;
             bool esAgenteDelArea = agente.Rol == RolEnum.AgenteArea && agente.AreaId == solicitud.AreaId;
 
-            if (!esAdmin && !esAgenteDelArea)
+            if (!esAdmin && !estaAsignado && !esAgenteDelArea)
             {
-                throw new UnauthorizedActionException("No tienes permiso para gestionar solicitudes de esta área");
+                throw new UnauthorizedActionException("No tienes permiso para gestionar esta solicitud");
             }
 
             if (solicitud.Estado == EstadoSolicitudEnum.Cerrada || 

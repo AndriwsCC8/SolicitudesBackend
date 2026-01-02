@@ -1,6 +1,6 @@
-namespace Application.DTOs.Catalogs
+namespace Application.DTOs.Admin
 {
-    public class TipoSolicitudDto
+    public class TipoSolicitudAdminDto
     {
         public int Id { get; set; }
         public string Nombre { get; set; } = string.Empty;
@@ -8,20 +8,21 @@ namespace Application.DTOs.Catalogs
         public int? AreaId { get; set; }
         public string? AreaNombre { get; set; }
         public bool Activo { get; set; }
+        public int CantidadSolicitudes { get; set; }
     }
 
-    public class CreateTipoSolicitudDto
+    public class CrearTipoSolicitudDto
     {
         public string Nombre { get; set; } = string.Empty;
         public string? Descripcion { get; set; }
         public int? AreaId { get; set; }
     }
 
-    public class UpdateTipoSolicitudDto
+    public class ActualizarTipoSolicitudDto
     {
-        public string Nombre { get; set; } = string.Empty;
+        public string? Nombre { get; set; }
         public string? Descripcion { get; set; }
         public int? AreaId { get; set; }
-        public bool Activo { get; set; }
+        public bool? Activo { get; set; }
     }
 }
