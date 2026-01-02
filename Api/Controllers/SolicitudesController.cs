@@ -254,7 +254,7 @@ namespace Api.Controllers
                     return BadRequest(new { message = "Usuario no tiene área asignada" });
                 }
 
-                var solicitudes = await _solicitudService.ObtenerPorAreaAsync(areaId);
+                var solicitudes = await _solicitudService.ObtenerBandejaAgenteAsync(usuarioId, areaId);
                 _logger.LogInformation("Devolviendo {Count} solicitudes del área {AreaId} para usuario {UsuarioId}", 
                     solicitudes.Count(), areaId, usuarioId);
                 

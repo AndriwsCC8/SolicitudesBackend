@@ -5,8 +5,8 @@ namespace Domain.Entities
         public int Id { get; set; }
         public string Nombre { get; set; } = string.Empty;
         public string? Descripcion { get; set; }
-        public int AreaId { get; set; }
-        public Area Area { get; set; } = null!;
+        public int? AreaId { get; set; }
+        public Area? Area { get; set; }
         public bool Activo { get; set; } = true;
 
         // Relaciones

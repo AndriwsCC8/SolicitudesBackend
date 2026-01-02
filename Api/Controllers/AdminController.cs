@@ -133,6 +133,26 @@ namespace Api.Controllers
 
         #endregion
 
+        #region Solicitudes sin asignar (Solo SuperAdministrador y Administrador)
+
+        [HttpGet("solicitudes/sin-asignar")]
+        [Authorize(Roles = "Administrador,SuperAdministrador")]
+        public async Task<ActionResult> ObtenerSolicitudesSinAsignar()
+        {
+            try
+            {
+                var solicitudes = await _adminService.ObtenerSolicitudesSinAsignarAsync();
+                return Ok(solicitudes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener solicitudes sin asignar");
+                return StatusCode(500, new { mensaje = "Error al obtener solicitudes sin asignar" });
+            }
+        }
+
+        #endregion
+
         #region Áreas (Administrador y SuperAdministrador)
 
         [HttpGet("areas")]
@@ -420,6 +440,71 @@ namespace Api.Controllers
             {
                 _logger.LogError(ex, "Error al obtener reporte de tiempos de respuesta");
                 return StatusCode(500, new { mensaje = "Error al obtener reporte de tiempos de respuesta" });
+            }
+        }
+
+        /// <summary>
+        /// ENDPOINT TEMPORAL DE DIAGNÓSTICO - Verificar y corregir rol de usuario a AgenteArea
+        /// </summary>
+        [HttpPost("usuarios/{id}/fix-rol")]
+        [Authorize(Roles = "SuperAdministrador")]
+        public async Task<ActionResult> CorregirRolUsuario(int id)
+        {
+            try
+            {
+                // Obtener estado actual
+                var usuarioActual = await _adminService.ObtenerUsuarioPorIdAsync(id);
+                if (usuarioActual == null)
+                    return NotFound(new { mensaje = "Usuario no encontrado", id });
+
+                _logger.LogInformation($"🔧 Estado ANTES - Usuario {id}: Rol={usuarioActual.Rol}, AreaId={usuarioActual.AreaId}, Activo={usuarioActual.Activo}");
+
+                // Crear DTO para actualizar a AgenteArea (rol 4)
+                var dto = new ActualizarUsuarioDto
+                {
+                    Rol = 4 // AgenteArea
+                };
+
+                // Actualizar usuario
+                await _adminService.ActualizarUsuarioAsync(id, dto);
+
+                // Obtener estado actualizado
+                var usuarioActualizado = await _adminService.ObtenerUsuarioPorIdAsync(id);
+                if (usuarioActualizado == null)
+                    return NotFound(new { mensaje = "Usuario no encontrado después de actualizar", id });
+                
+                _logger.LogInformation($"🔧 Estado DESPUÉS - Usuario {id}: Rol={usuarioActualizado.Rol}, AreaId={usuarioActualizado.AreaId}, Activo={usuarioActualizado.Activo}");
+
+                return Ok(new 
+                { 
+                    mensaje = "Usuario actualizado exitosamente",
+                    antes = new 
+                    { 
+                        Id = usuarioActual.Id,
+                        Nombre = usuarioActual.Nombre,
+                        Rol = usuarioActual.Rol,
+                        AreaId = usuarioActual.AreaId,
+                        Activo = usuarioActual.Activo
+                    },
+                    despues = new 
+                    { 
+                        Id = usuarioActualizado.Id,
+                        Nombre = usuarioActualizado.Nombre,
+                        Rol = usuarioActualizado.Rol,
+                        AreaId = usuarioActualizado.AreaId,
+                        Activo = usuarioActualizado.Activo
+                    }
+                });
+            }
+            catch (NotFoundException nfEx)
+            {
+                _logger.LogWarning($"Usuario {id} no encontrado: {nfEx.Message}");
+                return NotFound(new { mensaje = nfEx.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al corregir rol de usuario {UsuarioId}", id);
+                return StatusCode(500, new { mensaje = "Error al corregir rol", detalle = ex.Message });
             }
         }
 

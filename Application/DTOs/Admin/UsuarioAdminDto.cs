@@ -22,6 +22,7 @@ namespace Application.DTOs.Admin
         public string Password { get; set; } = string.Empty;
         public int Rol { get; set; }
         public int? AreaId { get; set; }
+        public bool? Activo { get; set; }
     }
 
     public class ActualizarUsuarioDto

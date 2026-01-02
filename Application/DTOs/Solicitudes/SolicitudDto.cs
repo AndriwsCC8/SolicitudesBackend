@@ -10,8 +10,8 @@ namespace Application.DTOs.Solicitudes
         public string Prioridad { get; set; } = string.Empty;
         
         // Información de Área con ID
-        public int AreaId { get; set; }
-        public string Area { get; set; } = string.Empty;
+        public int? AreaId { get; set; }
+        public string? Area { get; set; }
         
         // Información de Tipo de Solicitud con ID
         public int TipoSolicitudId { get; set; }

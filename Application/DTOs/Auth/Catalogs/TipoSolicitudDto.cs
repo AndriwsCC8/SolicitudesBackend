@@ -5,8 +5,8 @@ namespace Application.DTOs.Catalogs
         public int Id { get; set; }
         public string Nombre { get; set; } = string.Empty;
         public string? Descripcion { get; set; }
-        public int AreaId { get; set; }
-        public string AreaNombre { get; set; } = string.Empty;
+        public int? AreaId { get; set; }
+        public string? AreaNombre { get; set; }
         public bool Activo { get; set; }
     }
 
@@ -14,14 +14,14 @@ namespace Application.DTOs.Catalogs
     {
         public string Nombre { get; set; } = string.Empty;
         public string? Descripcion { get; set; }
-        public int AreaId { get; set; }
+        public int? AreaId { get; set; }
     }
 
     public class UpdateTipoSolicitudDto
     {
         public string Nombre { get; set; } = string.Empty;
         public string? Descripcion { get; set; }
-        public int AreaId { get; set; }
+        public int? AreaId { get; set; }
         public bool Activo { get; set; }
     }
 }

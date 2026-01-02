@@ -1,4 +1,5 @@
 using Application.DTOs.Admin;
+using Application.DTOs.Solicitudes;
 
 namespace Application.Interfaces
 {
@@ -24,6 +25,9 @@ namespace Application.Interfaces
         Task<TipoSolicitudAdminDto> CrearTipoSolicitudAsync(CrearTipoSolicitudDto dto);
         Task<TipoSolicitudAdminDto> ActualizarTipoSolicitudAsync(int id, ActualizarTipoSolicitudDto dto);
         Task<bool> EliminarTipoSolicitudAsync(int id);
+
+        // Solicitudes sin asignar
+        Task<List<SolicitudDto>> ObtenerSolicitudesSinAsignarAsync();
 
         // Reportes
         Task<ReporteResumenDto> ObtenerReporteResumenAsync();

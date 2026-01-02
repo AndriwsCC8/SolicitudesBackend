@@ -1,4 +1,5 @@
 using Application.DTOs.Admin;
+using Application.DTOs.Solicitudes;
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
@@ -69,6 +70,8 @@ namespace Infrastructure.Services
 
         public async Task<UsuarioAdminDto> CrearUsuarioAsync(CrearUsuarioDto dto)
         {
+            _logger.LogInformation("🔵 DTO recibido: Activo={Activo}", dto.Activo);
+
             // Validar email único
             var emailExiste = await _context.Usuarios.AnyAsync(u => u.Email == dto.Email);
             if (emailExiste)
@@ -98,14 +101,16 @@ namespace Infrastructure.Services
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 Rol = (RolEnum)dto.Rol,
                 AreaId = dto.AreaId,
-                Activo = true,
+                Activo = dto.Activo ?? true,
                 FechaCreacion = DateTime.Now
             };
+
+            _logger.LogInformation("🟢 Usuario antes de guardar: Activo={Activo}", usuario.Activo);
 
             _context.Usuarios.Add(usuario);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Usuario creado: {UsuarioId} - {Nombre}", usuario.Id, usuario.Nombre);
+            _logger.LogInformation("✅ Usuario guardado: Id={Id}, Activo={Activo}", usuario.Id, usuario.Activo);
 
             return await ObtenerUsuarioPorIdAsync(usuario.Id) ?? throw new Exception("Error al crear usuario");
         }
@@ -115,6 +120,9 @@ namespace Infrastructure.Services
             var usuario = await _context.Usuarios.FindAsync(id);
             if (usuario == null)
                 throw new NotFoundException("Usuario no encontrado");
+
+            _logger.LogInformation("🔵 Usuario ANTES de cambios: Id={Id}, Activo={Activo}, Rol={Rol}", 
+                usuario.Id, usuario.Activo, usuario.Rol);
 
             // Actualizar campos solo si vienen en el DTO
             if (!string.IsNullOrEmpty(dto.Nombre))
@@ -138,6 +146,7 @@ namespace Infrastructure.Services
 
             if (dto.Rol.HasValue)
             {
+                _logger.LogInformation("🟡 Cambiando Rol de {Antes} a {Despues}", usuario.Rol, (RolEnum)dto.Rol.Value);
                 usuario.Rol = (RolEnum)dto.Rol.Value;
                 // Si cambia a AgenteArea, debe tener área
                 if (dto.Rol.Value == 4 && !usuario.AreaId.HasValue && !dto.AreaId.HasValue)
@@ -160,9 +169,16 @@ namespace Infrastructure.Services
             }
 
             if (dto.Activo.HasValue)
+            {
+                _logger.LogInformation("🟡 Cambiando Activo de {Antes} a {Despues}", usuario.Activo, dto.Activo.Value);
                 usuario.Activo = dto.Activo.Value;
+            }
 
-            await _context.SaveChangesAsync();
+            _logger.LogInformation("🟢 Usuario DESPUÉS de cambios: Id={Id}, Activo={Activo}, Rol={Rol}", 
+                usuario.Id, usuario.Activo, usuario.Rol);
+
+            var changeCount = await _context.SaveChangesAsync();
+            _logger.LogInformation("💾 SaveChanges ejecutado. Cambios guardados: {Count}", changeCount);
 
             _logger.LogInformation("Usuario actualizado: {UsuarioId} - {Nombre}", usuario.Id, usuario.Nombre);
 
@@ -171,23 +187,37 @@ namespace Infrastructure.Services
 
         public async Task<bool> EliminarUsuarioAsync(int id)
         {
+            _logger.LogInformation("🗑️ Intentando eliminar usuario: {Id}", id);
+            
             var usuario = await _context.Usuarios.FindAsync(id);
             if (usuario == null)
+            {
+                _logger.LogWarning("❌ Usuario {Id} no encontrado", id);
                 throw new NotFoundException("Usuario no encontrado");
+            }
 
             // No permitir eliminar SuperAdministrador con ID 1
             if (usuario.Id == 1 && usuario.Rol == RolEnum.SuperAdministrador)
+            {
+                _logger.LogWarning("⛔ Intento de eliminar SuperAdministrador principal");
                 throw new BusinessException("No se puede eliminar el SuperAdministrador principal");
+            }
 
             // Verificar si tiene solicitudes asignadas
             var tieneSolicitudesAsignadas = await _context.Solicitudes
                 .AnyAsync(s => s.GestorAsignadoId == id);
 
             if (tieneSolicitudesAsignadas)
+            {
+                _logger.LogWarning("⚠️ Usuario {Id} tiene solicitudes asignadas", id);
                 throw new BusinessException("No se puede eliminar un usuario con solicitudes asignadas. Desactívelo en su lugar.");
+            }
 
+            _logger.LogInformation("🔴 Eliminando usuario: {Id} - {Nombre}", usuario.Id, usuario.Nombre);
             _context.Usuarios.Remove(usuario);
-            await _context.SaveChangesAsync();
+            
+            var changes = await _context.SaveChangesAsync();
+            _logger.LogInformation("💾 Usuario eliminado. Cambios: {Count}", changes);
 
             _logger.LogInformation("Usuario eliminado: {UsuarioId} - {Nombre}", usuario.Id, usuario.Nombre);
 
@@ -333,7 +363,7 @@ namespace Infrastructure.Services
                 Nombre = t.Nombre,
                 Descripcion = t.Descripcion,
                 AreaId = t.AreaId,
-                AreaNombre = t.Area.Nombre,
+                AreaNombre = t.Area != null ? t.Area.Nombre : null,
                 Activo = t.Activo,
                 CantidadSolicitudes = t.Solicitudes.Count
             }).ToList();
@@ -354,7 +384,7 @@ namespace Infrastructure.Services
                 Nombre = tipo.Nombre,
                 Descripcion = tipo.Descripcion,
                 AreaId = tipo.AreaId,
-                AreaNombre = tipo.Area.Nombre,
+                AreaNombre = tipo.Area?.Nombre,
                 Activo = tipo.Activo,
                 CantidadSolicitudes = tipo.Solicitudes.Count
             };
@@ -362,10 +392,13 @@ namespace Infrastructure.Services
 
         public async Task<TipoSolicitudAdminDto> CrearTipoSolicitudAsync(CrearTipoSolicitudDto dto)
         {
-            // Validar que el área existe
-            var area = await _context.Areas.FindAsync(dto.AreaId);
-            if (area == null)
-                throw new NotFoundException("El área especificada no existe");
+            // Validar que el área existe (solo si se proporciona)
+            if (dto.AreaId.HasValue)
+            {
+                var area = await _context.Areas.FindAsync(dto.AreaId.Value);
+                if (area == null)
+                    throw new NotFoundException("El área especificada no existe");
+            }
 
             // Validar nombre único por área
             var nombreExiste = await _context.TiposSolicitud
@@ -448,6 +481,54 @@ namespace Infrastructure.Services
             _logger.LogInformation("Tipo de solicitud eliminado: {TipoId} - {Nombre}", tipo.Id, tipo.Nombre);
 
             return true;
+        }
+
+        #endregion
+
+        #region Solicitudes sin asignar
+
+        public async Task<List<SolicitudDto>> ObtenerSolicitudesSinAsignarAsync()
+        {
+            var solicitudes = await _context.Solicitudes
+                .Include(s => s.TipoSolicitud)
+                .Include(s => s.Solicitante)
+                .Include(s => s.Area)
+                .Where(s => s.TipoSolicitud.Nombre == "Otro" && 
+                            s.GestorAsignadoId == null && 
+                            s.Estado == EstadoSolicitudEnum.Nueva)
+                .OrderBy(s => s.FechaCreacion)
+                .ToListAsync();
+
+            return solicitudes.Select(s => new SolicitudDto
+            {
+                Id = s.Id,
+                Numero = s.Numero,
+                Asunto = s.Asunto,
+                Descripcion = s.Descripcion,
+                Estado = s.Estado.ToString(),
+                Prioridad = s.Prioridad.ToString(),
+                FechaCreacion = s.FechaCreacion,
+                FechaCierre = s.FechaCierre,
+                TipoSolicitudId = s.TipoSolicitudId,
+                TipoSolicitud = s.TipoSolicitud.Nombre,
+                AreaId = s.AreaId,
+                Area = s.Area != null ? s.Area.Nombre : null,
+                SolicitanteId = s.SolicitanteId,
+                Solicitante = s.Solicitante.Nombre,
+                SolicitanteEmail = s.Solicitante.Email,
+                SolicitanteDepartamento = s.Solicitante.Area?.Nombre,
+                SolicitanteRol = (int)s.Solicitante.Rol,
+                SolicitanteRolNombre = s.Solicitante.Rol.ToString(),
+                GestorAsignadoId = null,
+                GestorAsignado = null,
+                GestorAsignadoEmail = null,
+                Archivo = s.ArchivoNombre != null ? new ArchivoAdjuntoDto
+                {
+                    NombreArchivo = s.ArchivoNombre,
+                    ContentType = s.ArchivoContentType
+                } : null,
+                Comentarios = new()
+            }).ToList();
         }
 
         #endregion
@@ -635,9 +716,5 @@ namespace Infrastructure.Services
                 _ => "Desconocido"
             };
         }
-    }
-
-    public interface IAdminService
-    {
     }
 }

@@ -150,6 +150,7 @@ namespace Infrastructure.Data
 
             // Usuarios iniciales - Uno por cada rol
             // Contraseñas: Super123!, Admin123!, Agente123!, User123!
+            // NOTA: Los hashes son fijos para evitar que cambien en cada migración
             modelBuilder.Entity<Usuario>().HasData(
                 new Usuario
                 {
@@ -157,10 +158,10 @@ namespace Infrastructure.Data
                     NombreUsuario = "superadmin",
                     Nombre = "Super Administrador",
                     Email = "superadmin@solicitudes.com",
-                    PasswordHash = PasswordHasher.Hash("Super123!"),
+                    PasswordHash = "$2a$11$8S/IE0c6cItC8sYEDLFVYeZhPGj5RisDiJx7uubFGaTAqro//9twe", // Super123!
                     Rol = RolEnum.SuperAdministrador,
                     Activo = true,
-                    FechaCreacion = DateTime.Now
+                    FechaCreacion = new DateTime(2026, 1, 2, 15, 22, 37, 384, DateTimeKind.Local).AddTicks(7335)
                 },
                 new Usuario
                 {
@@ -168,10 +169,10 @@ namespace Infrastructure.Data
                     NombreUsuario = "admin",
                     Nombre = "Administrador",
                     Email = "admin@solicitudes.com",
-                    PasswordHash = PasswordHasher.Hash("Admin123!"),
+                    PasswordHash = "$2a$11$yHk5av1Q9YHOsvYHw/A3W..yr2GQHZH7I4zpiqHPCSdH8yVwNs8Uq", // Admin123!
                     Rol = RolEnum.Administrador,
                     Activo = true,
-                    FechaCreacion = DateTime.Now
+                    FechaCreacion = new DateTime(2026, 1, 2, 15, 22, 37, 502, DateTimeKind.Local).AddTicks(4322)
                 },
                 new Usuario
                 {
@@ -179,11 +180,11 @@ namespace Infrastructure.Data
                     NombreUsuario = "agenteti",
                     Nombre = "Agente de TI",
                     Email = "agente.ti@solicitudes.com",
-                    PasswordHash = PasswordHasher.Hash("Agente123!"),
+                    PasswordHash = "$2a$11$kPhzQEa1hfUpe7unshNxV./zCMhzst9CggP8cReXDayn/CShyIRyy", // Agente123!
                     Rol = RolEnum.AgenteArea,
                     AreaId = 1,
                     Activo = true,
-                    FechaCreacion = DateTime.Now
+                    FechaCreacion = new DateTime(2026, 1, 2, 15, 22, 37, 622, DateTimeKind.Local).AddTicks(8622)
                 },
                 new Usuario
                 {
@@ -191,10 +192,10 @@ namespace Infrastructure.Data
                     NombreUsuario = "usuario1",
                     Nombre = "Juan Pérez",
                     Email = "juan.perez@solicitudes.com",
-                    PasswordHash = PasswordHasher.Hash("User123!"),
+                    PasswordHash = "$2a$11$NE5Yecuw/F8HYbZF4IlMFu5fCVEGczpVjmAGWRSfIkWagHolkYanm", // User123!
                     Rol = RolEnum.Usuario,
                     Activo = true,
-                    FechaCreacion = DateTime.Now
+                    FechaCreacion = new DateTime(2026, 1, 2, 15, 22, 37, 740, DateTimeKind.Local).AddTicks(4554)
                 }
             );
         }
