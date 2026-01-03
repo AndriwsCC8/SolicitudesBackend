@@ -431,12 +431,19 @@ namespace Infrastructure.Services
             }
 
             var agente = await _context.Usuarios
+                .Include(u => u.Area)
                 .FirstOrDefaultAsync(u => u.Id == dto.AgenteId && u.Rol == RolEnum.AgenteArea && u.Activo);
 
             _logger.LogInformation($"🔍 Resultado query con filtros (Rol=AgenteArea, Activo=true): {(agente != null ? "ENCONTRADO" : "NO ENCONTRADO")}");
 
             if (agente == null)
                 throw new NotFoundException("Agente no encontrado o no tiene el rol AgenteArea");
+
+            // Validar que el área del agente esté activa
+            if (agente.Area != null && !agente.Area.Activo)
+            {
+                throw new BusinessException($"No se puede asignar la solicitud. El área '{agente.Area.Nombre}' está inactiva.");
+            }
 
             // Validar que el agente pertenece al área SOLO si NO es tipo "Otro"
             if (solicitud.TipoSolicitud.Nombre != "Otro")
