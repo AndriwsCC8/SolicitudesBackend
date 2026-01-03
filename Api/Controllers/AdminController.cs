@@ -151,6 +151,22 @@ namespace Api.Controllers
             }
         }
 
+        [HttpGet("solicitudes/tipo-otro")]
+        [Authorize(Roles = "Administrador,SuperAdministrador")]
+        public async Task<ActionResult> ObtenerSolicitudesTipoOtro()
+        {
+            try
+            {
+                var solicitudes = await _adminService.ObtenerSolicitudesTipoOtroAsync();
+                return Ok(solicitudes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener solicitudes tipo Otro");
+                return StatusCode(500, new { mensaje = "Error al obtener solicitudes tipo Otro" });
+            }
+        }
+
         #endregion
 
         #region Áreas (Administrador y SuperAdministrador)

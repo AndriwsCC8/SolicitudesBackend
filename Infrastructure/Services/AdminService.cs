@@ -125,6 +125,17 @@ namespace Infrastructure.Services
                 usuario.Id, usuario.Activo, usuario.Rol);
 
             // Actualizar campos solo si vienen en el DTO
+            if (!string.IsNullOrWhiteSpace(dto.NombreUsuario))
+            {
+                // Validar nombreUsuario único
+                var nombreUsuarioExiste = await _context.Usuarios
+                    .AnyAsync(u => u.NombreUsuario == dto.NombreUsuario && u.Id != id);
+                if (nombreUsuarioExiste)
+                    throw new BusinessException("El nombre de usuario ya está registrado");
+
+                usuario.NombreUsuario = dto.NombreUsuario;
+            }
+
             if (!string.IsNullOrEmpty(dto.Nombre))
                 usuario.Nombre = dto.Nombre;
 
@@ -291,7 +302,10 @@ namespace Infrastructure.Services
 
         public async Task<AreaAdminDto> ActualizarAreaAsync(int id, ActualizarAreaDto dto)
         {
-            var area = await _context.Areas.FindAsync(id);
+            var area = await _context.Areas
+                .Include(a => a.Usuarios)
+                .FirstOrDefaultAsync(a => a.Id == id);
+                
             if (area == null)
                 throw new NotFoundException("Área no encontrada");
 
@@ -309,8 +323,45 @@ namespace Infrastructure.Services
             if (dto.Descripcion != null)
                 area.Descripcion = dto.Descripcion;
 
-            if (dto.Activo.HasValue)
+            // Si se está cambiando el estado Activo del área
+            if (dto.Activo.HasValue && dto.Activo.Value != area.Activo)
+            {
+                // Validación: No permitir desactivar área con solicitudes en proceso
+                if (!dto.Activo.Value)
+                {
+                    var solicitudesEnProceso = await _context.Solicitudes
+                        .Where(s => s.AreaId == id && 
+                               s.Estado != EstadoSolicitudEnum.Resuelta && 
+                               s.Estado != EstadoSolicitudEnum.Rechazada)
+                        .CountAsync();
+                        
+                    if (solicitudesEnProceso > 0)
+                        throw new BusinessException(
+                            $"No se puede desactivar el área. Tiene {solicitudesEnProceso} solicitud(es) en proceso. " +
+                            "Cierra o reasigna las solicitudes primero.");
+                }
+
                 area.Activo = dto.Activo.Value;
+                
+                // Actualizar TODOS los agentes (rol 4) de esta área
+                var agentesDelArea = area.Usuarios
+                    .Where(u => u.Rol == RolEnum.AgenteArea)
+                    .ToList();
+                
+                foreach (var agente in agentesDelArea)
+                {
+                    agente.Activo = dto.Activo.Value;
+                }
+                
+                _logger.LogInformation(
+                    "Área {AreaId} '{AreaNombre}' {Accion}. {CantidadAgentes} agentes {Accion}.",
+                    area.Id,
+                    area.Nombre,
+                    dto.Activo.Value ? "activada" : "desactivada",
+                    agentesDelArea.Count,
+                    dto.Activo.Value ? "activados" : "desactivados"
+                );
+            }
 
             await _context.SaveChangesAsync();
 
@@ -522,6 +573,50 @@ namespace Infrastructure.Services
                 GestorAsignadoId = null,
                 GestorAsignado = null,
                 GestorAsignadoEmail = null,
+                Archivo = s.ArchivoNombre != null ? new ArchivoAdjuntoDto
+                {
+                    NombreArchivo = s.ArchivoNombre,
+                    ContentType = s.ArchivoContentType
+                } : null,
+                Comentarios = new()
+            }).ToList();
+        }
+
+        public async Task<List<SolicitudDto>> ObtenerSolicitudesTipoOtroAsync()
+        {
+            var solicitudes = await _context.Solicitudes
+                .Include(s => s.TipoSolicitud)
+                .Include(s => s.Solicitante)
+                    .ThenInclude(sol => sol.Area)
+                .Include(s => s.Area)
+                .Include(s => s.GestorAsignado)
+                .Where(s => s.TipoSolicitud.Nombre == "Otro")
+                .OrderByDescending(s => s.FechaCreacion)
+                .ToListAsync();
+
+            return solicitudes.Select(s => new SolicitudDto
+            {
+                Id = s.Id,
+                Numero = s.Numero,
+                Asunto = s.Asunto,
+                Descripcion = s.Descripcion,
+                Estado = s.Estado.ToString(),
+                Prioridad = s.Prioridad.ToString(),
+                FechaCreacion = s.FechaCreacion,
+                FechaCierre = s.FechaCierre,
+                TipoSolicitudId = s.TipoSolicitudId,
+                TipoSolicitud = s.TipoSolicitud.Nombre,
+                AreaId = s.AreaId,
+                Area = s.Area != null ? s.Area.Nombre : null,
+                SolicitanteId = s.SolicitanteId,
+                Solicitante = s.Solicitante.Nombre,
+                SolicitanteEmail = s.Solicitante.Email,
+                SolicitanteDepartamento = s.Solicitante.Area?.Nombre,
+                SolicitanteRol = (int)s.Solicitante.Rol,
+                SolicitanteRolNombre = s.Solicitante.Rol.ToString(),
+                GestorAsignadoId = s.GestorAsignadoId,
+                GestorAsignado = s.GestorAsignado?.Nombre,
+                GestorAsignadoEmail = s.GestorAsignado?.Email,
                 Archivo = s.ArchivoNombre != null ? new ArchivoAdjuntoDto
                 {
                     NombreArchivo = s.ArchivoNombre,

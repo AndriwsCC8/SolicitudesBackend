@@ -27,6 +27,7 @@ namespace Application.DTOs.Admin
 
     public class ActualizarUsuarioDto
     {
+        public string? NombreUsuario { get; set; }
         public string? Nombre { get; set; }
         public string? Email { get; set; }
         public string? Password { get; set; }
