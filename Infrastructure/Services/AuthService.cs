@@ -62,7 +62,8 @@ namespace Infrastructure.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
                 new Claim(ClaimTypes.Name, nombreUsuario),
-                new Claim(ClaimTypes.Role, rol)
+                new Claim(ClaimTypes.Role, rol),
+                new Claim("RolId", ((int)Enum.Parse<Domain.Enums.RolEnum>(rol)).ToString())
             };
 
             if (areaId.HasValue)

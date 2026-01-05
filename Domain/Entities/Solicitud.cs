@@ -19,8 +19,8 @@ namespace Domain.Entities
         public string? ArchivoContentType { get; set; }
 
         // Relaciones
-        public int AreaId { get; set; }
-        public Area Area { get; set; } = null!;
+        public int? AreaId { get; set; }
+        public Area? Area { get; set; }
 
         public int TipoSolicitudId { get; set; }
         public TipoSolicitud TipoSolicitud { get; set; } = null!;

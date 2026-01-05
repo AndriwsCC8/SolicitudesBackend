@@ -8,11 +8,46 @@ namespace Application.DTOs.Solicitudes
         public string Descripcion { get; set; } = string.Empty;
         public string Estado { get; set; } = string.Empty;
         public string Prioridad { get; set; } = string.Empty;
-        public string Area { get; set; } = string.Empty;
+        
+        // Información de Área con ID
+        public int? AreaId { get; set; }
+        public string? Area { get; set; }
+        
+        // Información de Tipo de Solicitud con ID
+        public int TipoSolicitudId { get; set; }
         public string TipoSolicitud { get; set; } = string.Empty;
+        
+        // Información del Solicitante con ID y email
+        public int SolicitanteId { get; set; }
         public string Solicitante { get; set; } = string.Empty;
+        public string SolicitanteEmail { get; set; } = string.Empty;
+        public string? SolicitanteDepartamento { get; set; }
+        public int? SolicitanteRol { get; set; }
+        public string? SolicitanteRolNombre { get; set; }
+        
+        // Información del Gestor Asignado (opcional)
+        public int? GestorAsignadoId { get; set; }
         public string? GestorAsignado { get; set; }
+        public string? GestorAsignadoEmail { get; set; }
+        
+        // Fechas
         public DateTime FechaCreacion { get; set; }
         public DateTime? FechaCierre { get; set; }
+        
+        // Campos adicionales
+        public string? MotivoRechazo { get; set; }
+        
+        // Archivo adjunto (único)
+        public ArchivoAdjuntoDto? Archivo { get; set; }
+        
+        // Comentarios
+        public List<Application.DTOs.Comentarios.ComentarioDto> Comentarios { get; set; } = new();
+    }
+
+    public class ArchivoAdjuntoDto
+    {
+        public string NombreArchivo { get; set; } = string.Empty;
+        public string? ContentType { get; set; }
+        public long? TamanoBytes { get; set; }
     }
 }

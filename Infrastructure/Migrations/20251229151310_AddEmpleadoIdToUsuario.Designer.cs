@@ -4,6 +4,7 @@ using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251229151310_AddEmpleadoIdToUsuario")]
+    partial class AddEmpleadoIdToUsuario
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -44,7 +47,7 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Areas", (string)null);
+                    b.ToTable("Areas");
 
                     b.HasData(
                         new
@@ -105,7 +108,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("UsuarioId");
 
-                    b.ToTable("Comentarios", (string)null);
+                    b.ToTable("Comentarios");
                 });
 
             modelBuilder.Entity("Domain.Entities.HistorialEstado", b =>
@@ -141,7 +144,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("UsuarioId");
 
-                    b.ToTable("HistorialEstados", (string)null);
+                    b.ToTable("HistorialEstados");
                 });
 
             modelBuilder.Entity("Domain.Entities.Solicitud", b =>
@@ -161,7 +164,7 @@ namespace Infrastructure.Migrations
                     b.Property<string>("ArchivoRuta")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("AreaId")
+                    b.Property<int>("AreaId")
                         .HasColumnType("int");
 
                     b.Property<string>("Asunto")
@@ -217,7 +220,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("TipoSolicitudId");
 
-                    b.ToTable("Solicitudes", (string)null);
+                    b.ToTable("Solicitudes");
                 });
 
             modelBuilder.Entity("Domain.Entities.TipoSolicitud", b =>
@@ -231,7 +234,7 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("Activo")
                         .HasColumnType("bit");
 
-                    b.Property<int?>("AreaId")
+                    b.Property<int>("AreaId")
                         .HasColumnType("int");
 
                     b.Property<string>("Descripcion")
@@ -247,7 +250,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("AreaId");
 
-                    b.ToTable("TiposSolicitud", (string)null);
+                    b.ToTable("TiposSolicitud");
 
                     b.HasData(
                         new
@@ -311,6 +314,9 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("EmpleadoId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("datetime2");
 
@@ -338,7 +344,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("NombreUsuario")
                         .IsUnique();
 
-                    b.ToTable("Usuarios", (string)null);
+                    b.ToTable("Usuarios");
 
                     b.HasData(
                         new
@@ -346,10 +352,10 @@ namespace Infrastructure.Migrations
                             Id = 1,
                             Activo = true,
                             Email = "superadmin@solicitudes.com",
-                            FechaCreacion = new DateTime(2026, 1, 2, 15, 22, 37, 384, DateTimeKind.Local).AddTicks(7335),
+                            FechaCreacion = new DateTime(2025, 12, 29, 11, 13, 9, 458, DateTimeKind.Local).AddTicks(1662),
                             Nombre = "Super Administrador",
                             NombreUsuario = "superadmin",
-                            PasswordHash = "$2a$11$8S/IE0c6cItC8sYEDLFVYeZhPGj5RisDiJx7uubFGaTAqro//9twe",
+                            PasswordHash = "$2a$11$SIyKkMyZWwKo6YzAZD6I2elyXLg4NB9DJGbFuBxEBAPtJ2tISXaUy",
                             Rol = 3
                         },
                         new
@@ -357,10 +363,10 @@ namespace Infrastructure.Migrations
                             Id = 2,
                             Activo = true,
                             Email = "admin@solicitudes.com",
-                            FechaCreacion = new DateTime(2026, 1, 2, 15, 22, 37, 502, DateTimeKind.Local).AddTicks(4322),
+                            FechaCreacion = new DateTime(2025, 12, 29, 11, 13, 9, 607, DateTimeKind.Local).AddTicks(7328),
                             Nombre = "Administrador",
                             NombreUsuario = "admin",
-                            PasswordHash = "$2a$11$yHk5av1Q9YHOsvYHw/A3W..yr2GQHZH7I4zpiqHPCSdH8yVwNs8Uq",
+                            PasswordHash = "$2a$11$4eJWAmjWiyfbcImdowsK7uQVOopuGCEq9bqMPvzzZ5UW7XFAqNUy6",
                             Rol = 2
                         },
                         new
@@ -369,10 +375,10 @@ namespace Infrastructure.Migrations
                             Activo = true,
                             AreaId = 1,
                             Email = "agente.ti@solicitudes.com",
-                            FechaCreacion = new DateTime(2026, 1, 2, 15, 22, 37, 622, DateTimeKind.Local).AddTicks(8622),
+                            FechaCreacion = new DateTime(2025, 12, 29, 11, 13, 9, 743, DateTimeKind.Local).AddTicks(7107),
                             Nombre = "Agente de TI",
                             NombreUsuario = "agenteti",
-                            PasswordHash = "$2a$11$kPhzQEa1hfUpe7unshNxV./zCMhzst9CggP8cReXDayn/CShyIRyy",
+                            PasswordHash = "$2a$11$oKeA8yPnyfYQAoNMdoICfeOpOltmZV6p9bR6FskfHGTokQ6fSOiWO",
                             Rol = 4
                         },
                         new
@@ -380,10 +386,10 @@ namespace Infrastructure.Migrations
                             Id = 4,
                             Activo = true,
                             Email = "juan.perez@solicitudes.com",
-                            FechaCreacion = new DateTime(2026, 1, 2, 15, 22, 37, 740, DateTimeKind.Local).AddTicks(4554),
+                            FechaCreacion = new DateTime(2025, 12, 29, 11, 13, 9, 881, DateTimeKind.Local).AddTicks(5621),
                             Nombre = "Juan Pérez",
                             NombreUsuario = "usuario1",
-                            PasswordHash = "$2a$11$NE5Yecuw/F8HYbZF4IlMFu5fCVEGczpVjmAGWRSfIkWagHolkYanm",
+                            PasswordHash = "$2a$11$/eShXgAC7PLhSEl.NtrNfecMOHUe4z6wmaEObKXLyvplhm23oQfqm",
                             Rol = 1
                         });
                 });
@@ -431,7 +437,8 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Entities.Area", "Area")
                         .WithMany("Solicitudes")
                         .HasForeignKey("AreaId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("Domain.Entities.Usuario", "GestorAsignado")
                         .WithMany("SolicitudesAsignadas")
@@ -464,7 +471,8 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Entities.Area", "Area")
                         .WithMany("TiposSolicitud")
                         .HasForeignKey("AreaId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Area");
                 });

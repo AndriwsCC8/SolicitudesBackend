@@ -1,0 +1,168 @@
+### Módulo de Administración - API de Solicitudes
+### Base URL: http://localhost:5024
+
+# PRIMERO: Obtener el token del SuperAdministrador
+POST http://localhost:5024/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@example.com",
+  "password": "SuperAdmin123!"
+}
+
+###############################################
+# GESTIÓN DE USUARIOS (Solo SuperAdministrador)
+###############################################
+
+### 1. Obtener todos los usuarios
+GET http://localhost:5024/api/admin/usuarios
+Authorization: Bearer {{token}}
+
+### 2. Obtener usuario por ID
+GET http://localhost:5024/api/admin/usuarios/1
+Authorization: Bearer {{token}}
+
+### 3. Crear nuevo usuario
+POST http://localhost:5024/api/admin/usuarios
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreUsuario": "nuevo.agente",
+  "nombre": "Agente Nuevo",
+  "email": "agente.nuevo@example.com",
+  "password": "Password123!",
+  "rol": 4,
+  "areaId": 1
+}
+
+### 4. Actualizar usuario
+PUT http://localhost:5024/api/admin/usuarios/2
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Usuario Actualizado",
+  "activo": true
+}
+
+### 5. Eliminar usuario
+DELETE http://localhost:5024/api/admin/usuarios/5
+Authorization: Bearer {{token}}
+
+###############################################
+# GESTIÓN DE ÁREAS (Administrador y SuperAdministrador)
+###############################################
+
+### 6. Obtener todas las áreas
+GET http://localhost:5024/api/admin/areas
+Authorization: Bearer {{token}}
+
+### 7. Obtener área por ID
+GET http://localhost:5024/api/admin/areas/1
+Authorization: Bearer {{token}}
+
+### 8. Crear nueva área
+POST http://localhost:5024/api/admin/areas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Área de Recursos Humanos",
+  "descripcion": "Gestión de recursos humanos y nómina"
+}
+
+### 9. Actualizar área
+PUT http://localhost:5024/api/admin/areas/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Tecnología de la Información",
+  "descripcion": "Soporte técnico y desarrollo de sistemas",
+  "activo": true
+}
+
+### 10. Eliminar área
+DELETE http://localhost:5024/api/admin/areas/5
+Authorization: Bearer {{token}}
+
+###############################################
+# GESTIÓN DE CATEGORÍAS/TIPOS DE SOLICITUD
+###############################################
+
+### 11. Obtener todas las categorías
+GET http://localhost:5024/api/admin/categorias
+Authorization: Bearer {{token}}
+
+### 12. Obtener categoría por ID
+GET http://localhost:5024/api/admin/categorias/1
+Authorization: Bearer {{token}}
+
+### 13. Crear nueva categoría
+POST http://localhost:5024/api/admin/categorias
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Soporte de Aplicaciones",
+  "descripcion": "Problemas con aplicaciones empresariales",
+  "areaId": 1
+}
+
+### 14. Actualizar categoría
+PUT http://localhost:5024/api/admin/categorias/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Soporte Técnico General",
+  "descripcion": "Soporte técnico general y configuración",
+  "activo": true
+}
+
+### 15. Eliminar categoría
+DELETE http://localhost:5024/api/admin/categorias/5
+Authorization: Bearer {{token}}
+
+###############################################
+# REPORTES (Administrador y SuperAdministrador)
+###############################################
+
+### 16. Reporte Resumen General
+GET http://localhost:5024/api/admin/reportes/resumen
+Authorization: Bearer {{token}}
+
+### 17. Reporte Por Área
+GET http://localhost:5024/api/admin/reportes/por-area
+Authorization: Bearer {{token}}
+
+### 18. Reporte Desempeño de Agentes
+GET http://localhost:5024/api/admin/reportes/desempeno-agentes
+Authorization: Bearer {{token}}
+
+### 19. Reporte Tiempos de Respuesta
+GET http://localhost:5024/api/admin/reportes/tiempos-respuesta
+Authorization: Bearer {{token}}
+
+###############################################
+# PRUEBAS DE AUTORIZACIÓN
+###############################################
+
+### 20. Probar acceso de Administrador a usuarios (debe fallar)
+# Primero obtener token de admin
+POST http://localhost:5024/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Admin123!"
+}
+
+### Intentar obtener usuarios con token de admin (403 Forbidden)
+GET http://localhost:5024/api/admin/usuarios
+Authorization: Bearer {{admin_token}}
+
+### Obtener áreas con token de admin (debe funcionar)
+GET http://localhost:5024/api/admin/areas
+Authorization: Bearer {{admin_token}}

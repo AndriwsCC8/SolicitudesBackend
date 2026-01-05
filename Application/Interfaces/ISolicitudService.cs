@@ -6,14 +6,19 @@ namespace Application.Interfaces
     {
         // Consultas
         Task<SolicitudDto> CrearAsync(CrearSolicitudDto dto, int usuarioId);
+        Task<SolicitudDto?> ObtenerPorIdAsync(int solicitudId, int usuarioId);
         Task<IEnumerable<SolicitudDto>> ObtenerPorUsuarioAsync(int usuarioId);
         Task<IEnumerable<SolicitudDto>> ObtenerPorAreaAsync(int areaId);
+        Task<IEnumerable<SolicitudDto>> ObtenerBandejaAgenteAsync(int usuarioId, int areaId);
         Task<IEnumerable<SolicitudDto>> ObtenerTodasAsync();
         
         // Workflow
+        Task<SolicitudDto> TomarSolicitudAsync(int solicitudId, int usuarioId);
         Task<SolicitudDto> AsignarAgenteAsync(AsignarAgenteDto dto, int adminId);
+        Task<SolicitudDto> DesasignarGestorAsync(int solicitudId, int usuarioId);
         Task<SolicitudDto> CambiarEstadoAsync(CambiarEstadoDto dto, int agenteId);
         Task<SolicitudDto> RechazarAsync(RechazarSolicitudDto dto, int agenteId);
         Task<SolicitudDto> CerrarAsync(CerrarSolicitudDto dto, int usuarioId);
+        Task<SolicitudDto> EditarSolicitudAsync(int solicitudId, EditarSolicitudDto dto, int usuarioId);
     }
 }

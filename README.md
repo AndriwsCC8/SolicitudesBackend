@@ -74,15 +74,37 @@ Registro automático de cambios de estado
 
 Consulta de historial por solicitud
 
+� Sistema de Comentarios
+
+Agregar comentarios a solicitudes
+
+Visibilidad según rol (solicitante, gestor, admin)
+
+Consultar historial de comentarios
+
+📊 Módulo de Administración (Administrador y SuperAdministrador)
+
 👥 Gestión de Usuarios (Solo SuperAdministrador)
+- CRUD completo de usuarios
+- Asignación de roles y áreas
+- Activación/desactivación
+- Validaciones de negocio
 
-Crear usuarios
+🏢 Gestión de Áreas (Admin y SuperAdmin)
+- CRUD completo de áreas
+- Contadores de agentes y solicitudes
+- Protección contra eliminación con dependencias
 
-Listar usuarios
+📁 Gestión de Categorías (Admin y SuperAdmin)
+- CRUD completo de tipos de solicitud
+- Vinculación con áreas
+- Seguimiento de uso
 
-Editar rol, área y estado
-
-Resetear contraseña
+📈 Reportes en Tiempo Real (Admin y SuperAdmin)
+- Reporte resumen general
+- Métricas por área
+- Desempeño de agentes
+- Análisis de tiempos de respuesta y SLA
 
 🗄️ Base de Datos
 

@@ -10,6 +10,7 @@ namespace Application.Interfaces
         Task<AreaDto> CreateAreaAsync(CreateAreaDto dto);
         Task<AreaDto?> UpdateAreaAsync(int id, UpdateAreaDto dto);
         Task<bool> DeleteAreaAsync(int id);
+        Task<List<GestorDto>> GetGestoresPorAreaAsync(int areaId);
 
         // Tipos de Solicitud
         Task<List<TipoSolicitudDto>> GetTiposSolicitudAsync();

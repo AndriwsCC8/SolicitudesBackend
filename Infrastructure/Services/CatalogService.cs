@@ -96,6 +96,23 @@ namespace Infrastructure.Services
             return true;
         }
 
+        public async Task<List<GestorDto>> GetGestoresPorAreaAsync(int areaId)
+        {
+            return await _context.Usuarios
+                .Include(u => u.Area)
+                .Where(u => u.AreaId == areaId && 
+                           u.Rol == RolEnum.AgenteArea && 
+                           u.Activo)
+                .Select(u => new GestorDto
+                {
+                    Id = u.Id,
+                    Nombre = u.Nombre,
+                    Email = u.Email,
+                    Departamento = u.Area != null ? u.Area.Nombre : null
+                })
+                .ToListAsync();
+        }
+
         // TIPOS DE SOLICITUD
         public async Task<List<TipoSolicitudDto>> GetTiposSolicitudAsync()
         {
@@ -108,7 +125,7 @@ namespace Infrastructure.Services
                     Nombre = t.Nombre,
                     Descripcion = t.Descripcion,
                     AreaId = t.AreaId,
-                    AreaNombre = t.Area.Nombre,
+                    AreaNombre = t.Area != null ? t.Area.Nombre : null,
                     Activo = t.Activo
                 })
                 .ToListAsync();
@@ -125,7 +142,7 @@ namespace Infrastructure.Services
                     Nombre = t.Nombre,
                     Descripcion = t.Descripcion,
                     AreaId = t.AreaId,
-                    AreaNombre = t.Area.Nombre,
+                    AreaNombre = t.Area != null ? t.Area.Nombre : null,
                     Activo = t.Activo
                 })
                 .ToListAsync();
@@ -197,7 +214,7 @@ namespace Infrastructure.Services
                 Nombre = tipo.Nombre,
                 Descripcion = tipo.Descripcion,
                 AreaId = tipo.AreaId,
-                AreaNombre = tipo.Area.Nombre,
+                AreaNombre = tipo.Area?.Nombre,
                 Activo = tipo.Activo
             };
         }
