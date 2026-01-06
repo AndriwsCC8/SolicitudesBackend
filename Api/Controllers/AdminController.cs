@@ -4,6 +4,7 @@ using Application.Interfaces;
 using Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Api.Controllers
 {
@@ -106,6 +107,17 @@ namespace Api.Controllers
         {
             try
             {
+                // 🔒 Validación: No permitir que un usuario se desactive a sí mismo
+                var usuarioAutenticadoId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+                if (dto.Activo == false && id == usuarioAutenticadoId)
+                {
+                    return BadRequest(new
+                    {
+                        mensaje = "No puedes desactivar tu propia cuenta. Pide a otro administrador que lo haga."
+                    });
+                }
+
                 var usuario = await _adminService.ActualizarUsuarioAsync(id, dto);
                 return Ok(usuario);
             }
@@ -419,6 +431,26 @@ namespace Api.Controllers
             {
                 _logger.LogError(ex, "Error al eliminar categoría {CategoriaId}", id);
                 return StatusCode(500, new { mensaje = "Error al eliminar categoría" });
+            }
+        }
+
+        [HttpPatch("categorias/{id}/toggle-activo")]
+        [Authorize(Roles = "Administrador,SuperAdministrador")]
+        public async Task<ActionResult<TipoSolicitudAdminDto>> ToggleActivoCategoria(int id)
+        {
+            try
+            {
+                var categoria = await _adminService.ToggleActivoTipoSolicitudAsync(id);
+                return Ok(categoria);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { mensaje = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al cambiar estado de categoría {CategoriaId}", id);
+                return StatusCode(500, new { mensaje = "Error al cambiar estado de la categoría" });
             }
         }
 

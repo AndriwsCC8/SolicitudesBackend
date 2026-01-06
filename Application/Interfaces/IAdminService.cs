@@ -26,6 +26,7 @@ namespace Application.Interfaces
         Task<TipoSolicitudAdminDto> CrearTipoSolicitudAsync(CrearTipoSolicitudDto dto);
         Task<TipoSolicitudAdminDto> ActualizarTipoSolicitudAsync(int id, ActualizarTipoSolicitudDto dto);
         Task<bool> EliminarTipoSolicitudAsync(int id);
+        Task<TipoSolicitudAdminDto> ToggleActivoTipoSolicitudAsync(int id);
 
         // Solicitudes sin asignar
         Task<List<SolicitudDto>> ObtenerSolicitudesSinAsignarAsync();

@@ -598,6 +598,36 @@ namespace Infrastructure.Services
             return true;
         }
 
+        public async Task<TipoSolicitudAdminDto> ToggleActivoTipoSolicitudAsync(int id)
+        {
+            var tipo = await _context.TiposSolicitud
+                .Include(t => t.Area)
+                .Include(t => t.Solicitudes)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            if (tipo == null)
+                throw new NotFoundException("Tipo de solicitud no encontrado");
+
+            // Cambiar el estado
+            tipo.Activo = !tipo.Activo;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Tipo de solicitud {TipoId} - {Nombre} cambió estado activo a: {Activo}",
+                tipo.Id, tipo.Nombre, tipo.Activo);
+
+            return new TipoSolicitudAdminDto
+            {
+                Id = tipo.Id,
+                Nombre = tipo.Nombre,
+                Descripcion = tipo.Descripcion,
+                AreaId = tipo.AreaId,
+                AreaNombre = tipo.Area?.Nombre,
+                Activo = tipo.Activo,
+                CantidadSolicitudes = tipo.Solicitudes.Count
+            };
+        }
+
         #endregion
 
         #region Solicitudes sin asignar
