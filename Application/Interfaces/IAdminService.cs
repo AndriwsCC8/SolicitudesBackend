@@ -7,6 +7,7 @@ namespace Application.Interfaces
     {
         // Usuarios
         Task<List<UsuarioAdminDto>> ObtenerUsuariosAsync();
+        Task<List<UsuarioAdminDto>> ObtenerAgentesAsync();
         Task<UsuarioAdminDto?> ObtenerUsuarioPorIdAsync(int id);
         Task<UsuarioAdminDto> CrearUsuarioAsync(CrearUsuarioDto dto);
         Task<UsuarioAdminDto> ActualizarUsuarioAsync(int id, ActualizarUsuarioDto dto);

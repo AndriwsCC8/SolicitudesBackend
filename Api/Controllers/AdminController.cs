@@ -37,6 +37,22 @@ namespace Api.Controllers
             }
         }
 
+        [HttpGet("agentes")]
+        [Authorize(Roles = "Administrador,SuperAdministrador")]
+        public async Task<ActionResult<List<UsuarioAdminDto>>> ObtenerAgentes()
+        {
+            try
+            {
+                var agentes = await _adminService.ObtenerAgentesAsync();
+                return Ok(agentes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener agentes");
+                return StatusCode(500, new { mensaje = "Error al obtener agentes" });
+            }
+        }
+
         [HttpGet("usuarios/{id}")]
         [Authorize(Roles = "SuperAdministrador")]
         public async Task<ActionResult<UsuarioAdminDto>> ObtenerUsuarioPorId(int id)
@@ -488,22 +504,22 @@ namespace Api.Controllers
                 var usuarioActualizado = await _adminService.ObtenerUsuarioPorIdAsync(id);
                 if (usuarioActualizado == null)
                     return NotFound(new { mensaje = "Usuario no encontrado después de actualizar", id });
-                
+
                 _logger.LogInformation($"🔧 Estado DESPUÉS - Usuario {id}: Rol={usuarioActualizado.Rol}, AreaId={usuarioActualizado.AreaId}, Activo={usuarioActualizado.Activo}");
 
-                return Ok(new 
-                { 
+                return Ok(new
+                {
                     mensaje = "Usuario actualizado exitosamente",
-                    antes = new 
-                    { 
+                    antes = new
+                    {
                         Id = usuarioActual.Id,
                         Nombre = usuarioActual.Nombre,
                         Rol = usuarioActual.Rol,
                         AreaId = usuarioActual.AreaId,
                         Activo = usuarioActual.Activo
                     },
-                    despues = new 
-                    { 
+                    despues = new
+                    {
                         Id = usuarioActualizado.Id,
                         Nombre = usuarioActualizado.Nombre,
                         Rol = usuarioActualizado.Rol,

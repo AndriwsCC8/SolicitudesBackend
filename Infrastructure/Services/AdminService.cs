@@ -45,6 +45,29 @@ namespace Infrastructure.Services
             }).ToList();
         }
 
+        public async Task<List<UsuarioAdminDto>> ObtenerAgentesAsync()
+        {
+            var agentes = await _context.Usuarios
+                .Include(u => u.Area)
+                .Where(u => u.Rol == RolEnum.AgenteArea)
+                .OrderBy(u => u.Nombre)
+                .ToListAsync();
+
+            return agentes.Select(u => new UsuarioAdminDto
+            {
+                Id = u.Id,
+                NombreUsuario = u.NombreUsuario,
+                Nombre = u.Nombre,
+                Email = u.Email,
+                Rol = (int)u.Rol,
+                RolNombre = ObtenerNombreRol((int)u.Rol),
+                AreaId = u.AreaId,
+                AreaNombre = u.Area?.Nombre,
+                Activo = u.Activo,
+                FechaCreacion = u.FechaCreacion
+            }).ToList();
+        }
+
         public async Task<UsuarioAdminDto?> ObtenerUsuarioPorIdAsync(int id)
         {
             var usuario = await _context.Usuarios
@@ -121,7 +144,7 @@ namespace Infrastructure.Services
             if (usuario == null)
                 throw new NotFoundException("Usuario no encontrado");
 
-            _logger.LogInformation("🔵 Usuario ANTES de cambios: Id={Id}, Activo={Activo}, Rol={Rol}", 
+            _logger.LogInformation("🔵 Usuario ANTES de cambios: Id={Id}, Activo={Activo}, Rol={Rol}",
                 usuario.Id, usuario.Activo, usuario.Rol);
 
             // Actualizar campos solo si vienen en el DTO
@@ -185,7 +208,7 @@ namespace Infrastructure.Services
                 usuario.Activo = dto.Activo.Value;
             }
 
-            _logger.LogInformation("🟢 Usuario DESPUÉS de cambios: Id={Id}, Activo={Activo}, Rol={Rol}", 
+            _logger.LogInformation("🟢 Usuario DESPUÉS de cambios: Id={Id}, Activo={Activo}, Rol={Rol}",
                 usuario.Id, usuario.Activo, usuario.Rol);
 
             var changeCount = await _context.SaveChangesAsync();
@@ -199,7 +222,7 @@ namespace Infrastructure.Services
         public async Task<bool> EliminarUsuarioAsync(int id, bool force = false)
         {
             _logger.LogInformation("🗑️ Intentando eliminar usuario: {Id} (Force: {Force})", id, force);
-            
+
             var usuario = await _context.Usuarios.FindAsync(id);
             if (usuario == null)
             {
@@ -245,11 +268,11 @@ namespace Infrastructure.Services
             var comentariosDelUsuario = await _context.Comentarios
                 .Where(c => c.UsuarioId == id)
                 .ToListAsync();
-            
+
             if (comentariosDelUsuario.Any())
             {
                 _context.Comentarios.RemoveRange(comentariosDelUsuario);
-                _logger.LogInformation("🗑️ Eliminando {Cantidad} comentario(s) del usuario {UsuarioId}", 
+                _logger.LogInformation("🗑️ Eliminando {Cantidad} comentario(s) del usuario {UsuarioId}",
                     comentariosDelUsuario.Count, id);
             }
 
@@ -257,17 +280,17 @@ namespace Infrastructure.Services
             var historialDelUsuario = await _context.HistorialEstados
                 .Where(h => h.UsuarioId == id)
                 .ToListAsync();
-            
+
             if (historialDelUsuario.Any())
             {
                 _context.HistorialEstados.RemoveRange(historialDelUsuario);
-                _logger.LogInformation("🗑️ Eliminando {Cantidad} registro(s) de historial del usuario {UsuarioId}", 
+                _logger.LogInformation("🗑️ Eliminando {Cantidad} registro(s) de historial del usuario {UsuarioId}",
                     historialDelUsuario.Count, id);
             }
 
             _logger.LogInformation("🔴 Eliminando usuario: {Id} - {Nombre}", usuario.Id, usuario.Nombre);
             _context.Usuarios.Remove(usuario);
-            
+
             var changes = await _context.SaveChangesAsync();
             _logger.LogInformation("💾 Usuario eliminado. Cambios: {Count}", changes);
 
@@ -346,7 +369,7 @@ namespace Infrastructure.Services
             var area = await _context.Areas
                 .Include(a => a.Usuarios)
                 .FirstOrDefaultAsync(a => a.Id == id);
-                
+
             if (area == null)
                 throw new NotFoundException("Área no encontrada");
 
@@ -371,11 +394,11 @@ namespace Infrastructure.Services
                 if (!dto.Activo.Value)
                 {
                     var solicitudesEnProceso = await _context.Solicitudes
-                        .Where(s => s.AreaId == id && 
-                               s.Estado != EstadoSolicitudEnum.Resuelta && 
+                        .Where(s => s.AreaId == id &&
+                               s.Estado != EstadoSolicitudEnum.Resuelta &&
                                s.Estado != EstadoSolicitudEnum.Rechazada)
                         .CountAsync();
-                        
+
                     if (solicitudesEnProceso > 0)
                         throw new BusinessException(
                             $"No se puede desactivar el área. Tiene {solicitudesEnProceso} solicitud(es) en proceso. " +
@@ -383,17 +406,17 @@ namespace Infrastructure.Services
                 }
 
                 area.Activo = dto.Activo.Value;
-                
+
                 // Actualizar TODOS los agentes (rol 4) de esta área
                 var agentesDelArea = area.Usuarios
                     .Where(u => u.Rol == RolEnum.AgenteArea)
                     .ToList();
-                
+
                 foreach (var agente in agentesDelArea)
                 {
                     agente.Activo = dto.Activo.Value;
                 }
-                
+
                 _logger.LogInformation(
                     "Área {AreaId} '{AreaNombre}' {Accion}. {CantidadAgentes} agentes {Accion}.",
                     area.Id,
@@ -585,8 +608,8 @@ namespace Infrastructure.Services
                 .Include(s => s.TipoSolicitud)
                 .Include(s => s.Solicitante)
                 .Include(s => s.Area)
-                .Where(s => s.TipoSolicitud.Nombre == "Otro" && 
-                            s.GestorAsignadoId == null && 
+                .Where(s => s.TipoSolicitud.Nombre == "Otro" &&
+                            s.GestorAsignadoId == null &&
                             s.Estado == EstadoSolicitudEnum.Nueva)
                 .OrderBy(s => s.FechaCreacion)
                 .ToListAsync();
@@ -723,11 +746,11 @@ namespace Infrastructure.Services
             {
                 var solicitudesArea = area.Solicitudes;
                 var totalSolicitudes = solicitudesArea.Count;
-                var solicitudesAbiertas = solicitudesArea.Count(s => 
-                    s.Estado == EstadoSolicitudEnum.Nueva || 
+                var solicitudesAbiertas = solicitudesArea.Count(s =>
+                    s.Estado == EstadoSolicitudEnum.Nueva ||
                     s.Estado == EstadoSolicitudEnum.EnProceso);
-                var solicitudesResueltas = solicitudesArea.Count(s => 
-                    s.Estado == EstadoSolicitudEnum.Resuelta || 
+                var solicitudesResueltas = solicitudesArea.Count(s =>
+                    s.Estado == EstadoSolicitudEnum.Resuelta ||
                     s.Estado == EstadoSolicitudEnum.Cerrada);
 
                 var solicitudesConCierre = solicitudesArea
@@ -768,10 +791,10 @@ namespace Infrastructure.Services
             foreach (var agente in agentes)
             {
                 var solicitudesAsignadas = agente.SolicitudesAsignadas.Count;
-                var solicitudesResueltas = agente.SolicitudesAsignadas.Count(s => 
-                    s.Estado == EstadoSolicitudEnum.Resuelta || 
+                var solicitudesResueltas = agente.SolicitudesAsignadas.Count(s =>
+                    s.Estado == EstadoSolicitudEnum.Resuelta ||
                     s.Estado == EstadoSolicitudEnum.Cerrada);
-                var solicitudesEnProceso = agente.SolicitudesAsignadas.Count(s => 
+                var solicitudesEnProceso = agente.SolicitudesAsignadas.Count(s =>
                     s.Estado == EstadoSolicitudEnum.EnProceso);
 
                 var tasaResolucion = solicitudesAsignadas > 0
@@ -819,7 +842,7 @@ namespace Infrastructure.Services
 
             // Solicitudes fuera de SLA (más de 72 horas)
             var solicitudesFueraSLA = await _context.Solicitudes
-                .Where(s => !s.FechaCierre.HasValue && 
+                .Where(s => !s.FechaCierre.HasValue &&
                            EF.Functions.DateDiffHour(s.FechaCreacion, DateTime.Now) > 72)
                 .CountAsync();
 
