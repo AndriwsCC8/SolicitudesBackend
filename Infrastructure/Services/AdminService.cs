@@ -646,6 +646,50 @@ namespace Infrastructure.Services
             }).ToList();
         }
 
+        public async Task<List<SolicitudDto>> ObtenerTodasSolicitudesSinAsignarAsync()
+        {
+            var solicitudes = await _context.Solicitudes
+                .Include(s => s.TipoSolicitud)
+                .Include(s => s.Solicitante)
+                    .ThenInclude(sol => sol.Area)
+                .Include(s => s.Area)
+                .Where(s => s.GestorAsignadoId == null &&
+                            s.Estado == EstadoSolicitudEnum.Nueva)
+                .OrderByDescending(s => s.FechaCreacion)
+                .ToListAsync();
+
+            return solicitudes.Select(s => new SolicitudDto
+            {
+                Id = s.Id,
+                Numero = s.Numero,
+                Asunto = s.Asunto,
+                Descripcion = s.Descripcion,
+                Estado = s.Estado.ToString(),
+                Prioridad = s.Prioridad.ToString(),
+                FechaCreacion = s.FechaCreacion,
+                FechaCierre = s.FechaCierre,
+                TipoSolicitudId = s.TipoSolicitudId,
+                TipoSolicitud = s.TipoSolicitud.Nombre,
+                AreaId = s.AreaId,
+                Area = s.Area != null ? s.Area.Nombre : null,
+                SolicitanteId = s.SolicitanteId,
+                Solicitante = s.Solicitante.Nombre,
+                SolicitanteEmail = s.Solicitante.Email,
+                SolicitanteDepartamento = s.Solicitante.Area?.Nombre,
+                SolicitanteRol = (int)s.Solicitante.Rol,
+                SolicitanteRolNombre = s.Solicitante.Rol.ToString(),
+                GestorAsignadoId = null,
+                GestorAsignado = null,
+                GestorAsignadoEmail = null,
+                Archivo = s.ArchivoNombre != null ? new ArchivoAdjuntoDto
+                {
+                    NombreArchivo = s.ArchivoNombre,
+                    ContentType = s.ArchivoContentType
+                } : null,
+                Comentarios = new()
+            }).ToList();
+        }
+
         public async Task<List<SolicitudDto>> ObtenerSolicitudesTipoOtroAsync()
         {
             var solicitudes = await _context.Solicitudes

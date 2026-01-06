@@ -1,4 +1,5 @@
 using Application.DTOs.Admin;
+using Application.DTOs.Solicitudes;
 using Application.Interfaces;
 using Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
@@ -166,7 +167,21 @@ namespace Api.Controllers
                 return StatusCode(500, new { mensaje = "Error al obtener solicitudes sin asignar" });
             }
         }
-
+        [HttpGet("solicitudes/todas-sin-asignar")]
+        [Authorize(Roles = "Administrador,SuperAdministrador")]
+        public async Task<ActionResult<List<SolicitudDto>>> ObtenerTodasSolicitudesSinAsignar()
+        {
+            try
+            {
+                var solicitudes = await _adminService.ObtenerTodasSolicitudesSinAsignarAsync();
+                return Ok(solicitudes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener todas las solicitudes sin asignar");
+                return StatusCode(500, new { mensaje = "Error al obtener todas las solicitudes sin asignar" });
+            }
+        }
         [HttpGet("solicitudes/tipo-otro")]
         [Authorize(Roles = "Administrador,SuperAdministrador")]
         public async Task<ActionResult> ObtenerSolicitudesTipoOtro()

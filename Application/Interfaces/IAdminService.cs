@@ -29,6 +29,7 @@ namespace Application.Interfaces
 
         // Solicitudes sin asignar
         Task<List<SolicitudDto>> ObtenerSolicitudesSinAsignarAsync();
+        Task<List<SolicitudDto>> ObtenerTodasSolicitudesSinAsignarAsync();
         Task<List<SolicitudDto>> ObtenerSolicitudesTipoOtroAsync();
 
         // Reportes
