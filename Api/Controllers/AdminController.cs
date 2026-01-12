@@ -13,11 +13,13 @@ namespace Api.Controllers
     public class AdminController : ControllerBase
     {
         private readonly IAdminService _adminService;
+        private readonly IReporteService _reporteService;
         private readonly ILogger<AdminController> _logger;
 
-        public AdminController(IAdminService adminService, ILogger<AdminController> logger)
+        public AdminController(IAdminService adminService, IReporteService reporteService, ILogger<AdminController> logger)
         {
             _adminService = adminService;
+            _reporteService = reporteService;
             _logger = logger;
         }
 
@@ -584,6 +586,27 @@ namespace Api.Controllers
             {
                 _logger.LogError(ex, "Error al corregir rol de usuario {UsuarioId}", id);
                 return StatusCode(500, new { mensaje = "Error al corregir rol", detalle = ex.Message });
+            }
+        }
+
+        #endregion
+
+        #region Reportes
+
+        [HttpGet("reportes/exportar-excel")]
+        [Authorize(Roles = "Administrador,SuperAdministrador")]
+        public async Task<ActionResult> ExportarReporteExcel()
+        {
+            try
+            {
+                var excelBytes = await _reporteService.GenerarReporteExcelAsync();
+                var nombreArchivo = $"Reporte_Sistema_{DateTime.Now:yyyy-MM-dd}.xlsx";
+                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", nombreArchivo);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al exportar reporte a Excel");
+                return StatusCode(500, new { mensaje = "Error al exportar reporte", detalle = ex.Message });
             }
         }
 

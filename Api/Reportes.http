@@ -1,0 +1,8 @@
+@baseUrl = http://localhost:5024
+@token = TU_TOKEN_AQUI
+
+### Exportar Reporte Completo a Excel
+GET {{baseUrl}}/api/admin/reportes/exportar-excel
+Authorization: Bearer {{token}}
+
+###

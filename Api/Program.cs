@@ -16,7 +16,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Solicitudes API", Version = "v1" });
-    
+
     // Configurar JWT en Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -82,6 +82,7 @@ builder.Services.AddScoped<IHistorialService, HistorialService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IPdfExportService, PdfExportService>();
+builder.Services.AddScoped<IReporteService, ReporteService>();
 
 // Configurar CORS (opcional)
 builder.Services.AddCors(options =>

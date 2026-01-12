@@ -24,7 +24,7 @@ namespace Infrastructure.Services
         {
             try
             {
-                _logger.LogInformation("Iniciando CrearAsync. UsuarioId: {UsuarioId}, TipoSolicitudId: {TipoSolicitudId}", 
+                _logger.LogInformation("Iniciando CrearAsync. UsuarioId: {UsuarioId}, TipoSolicitudId: {TipoSolicitudId}",
                     usuarioId, dto.TipoSolicitudId);
 
                 // Validar que el tipo de solicitud existe
@@ -38,12 +38,12 @@ namespace Infrastructure.Services
                     throw new NotFoundException("Tipo de solicitud no encontrado o inactivo");
                 }
 
-                _logger.LogInformation("TipoSolicitud encontrado: {Nombre}, AreaId: {AreaId}", 
+                _logger.LogInformation("TipoSolicitud encontrado: {Nombre}, AreaId: {AreaId}",
                     tipoSolicitud.Nombre, tipoSolicitud.AreaId);
 
-                _logger.LogInformation("🔍 Creando solicitud - Tipo: {TipoNombre}, AreaId: {AreaId}, Es Otro: {EsOtro}", 
-                    tipoSolicitud.Nombre, 
-                    tipoSolicitud.AreaId, 
+                _logger.LogInformation("🔍 Creando solicitud - Tipo: {TipoNombre}, AreaId: {AreaId}, Es Otro: {EsOtro}",
+                    tipoSolicitud.Nombre,
+                    tipoSolicitud.AreaId,
                     tipoSolicitud.Nombre == "Otro");
 
                 // Obtener usuario
@@ -56,10 +56,10 @@ namespace Infrastructure.Services
 
                 _logger.LogInformation("Usuario encontrado: {NombreUsuario}", usuario.NombreUsuario);
 
-            // Generar número de solicitud único (SOL-YYYY-####)
-            var año = DateTime.Now.Year;
+                // Generar número de solicitud único (SOL-YYYY-####)
+                var año = DateTime.Now.Year;
                 var prefijo = $"SOL-{año}-";
-                
+
                 // Obtener el máximo número de solicitud del año actual
                 var ultimaSolicitudDelAño = await _context.Solicitudes
                     .Where(s => s.Numero.StartsWith(prefijo))
@@ -75,7 +75,7 @@ namespace Infrastructure.Services
                         siguienteNumero = numero + 1;
                     }
                 }
-                
+
                 // Verificar que el número no exista (por si acaso)
                 string numeroSolicitud;
                 bool numeroExiste;
@@ -104,14 +104,14 @@ namespace Infrastructure.Services
                 {
                     // Tipo normal con área específica
                     areaIdParaSolicitud = tipoSolicitud.AreaId.Value;
-                    _logger.LogInformation("Solicitud tipo '{Tipo}' con área específica: {AreaId}", 
+                    _logger.LogInformation("Solicitud tipo '{Tipo}' con área específica: {AreaId}",
                         tipoSolicitud.Nombre, areaIdParaSolicitud);
                 }
                 else
                 {
                     // Tipo "Otro" sin área específica - usar área del solicitante (puede ser null)
                     areaIdParaSolicitud = usuario.AreaId;
-                    _logger.LogInformation("✅ Solicitud tipo 'Otro' - AreaId: {AreaId} (Usuario: {AreaIdUsuario})", 
+                    _logger.LogInformation("✅ Solicitud tipo 'Otro' - AreaId: {AreaId} (Usuario: {AreaIdUsuario})",
                         areaIdParaSolicitud, usuario.AreaId);
                 }
 
@@ -130,72 +130,64 @@ namespace Infrastructure.Services
                     // GestorAsignadoId queda NULL - se asignará manualmente por admin si es "Otro"
                 };
 
-            // Guardar archivo si existe
-            if (dto.Archivo != null && dto.Archivo.Length > 0)
-            {
-                _logger.LogInformation("Procesando archivo adjunto: {FileName}, Tamaño: {Size} bytes", 
-                    dto.Archivo.FileName, dto.Archivo.Length);
-                
-                var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-                Directory.CreateDirectory(uploadPath);
-                
-                var fileName = $"{Guid.NewGuid()}_{dto.Archivo.FileName}";
-                var filePath = Path.Combine(uploadPath, fileName);
-                
-                using (var stream = new FileStream(filePath, FileMode.Create))
+                // Guardar archivo si existe
+                if (dto.Archivo != null && dto.Archivo.Length > 0)
                 {
-                    await dto.Archivo.CopyToAsync(stream);
+                    _logger.LogInformation("Procesando archivo adjunto: {FileName}, Tamaño: {Size} bytes",
+                        dto.Archivo.FileName, dto.Archivo.Length);
+
+                    var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+                    Directory.CreateDirectory(uploadPath);
+
+                    var fileName = $"{Guid.NewGuid()}_{dto.Archivo.FileName}";
+                    var filePath = Path.Combine(uploadPath, fileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await dto.Archivo.CopyToAsync(stream);
+                    }
+
+                    solicitud.ArchivoNombre = dto.Archivo.FileName;
+                    solicitud.ArchivoRuta = $"/uploads/{fileName}";
+                    solicitud.ArchivoContentType = dto.Archivo.ContentType;
+
+                    _logger.LogInformation("Archivo guardado: {FilePath}", filePath);
                 }
-                
-                solicitud.ArchivoNombre = dto.Archivo.FileName;
-                solicitud.ArchivoRuta = $"/uploads/{fileName}";
-                solicitud.ArchivoContentType = dto.Archivo.ContentType;
-                
-                _logger.LogInformation("Archivo guardado: {FilePath}", filePath);
-            }
 
-            _context.Solicitudes.Add(solicitud);
-            _logger.LogInformation("Guardando solicitud en la base de datos...");
-            
-            await _context.SaveChangesAsync();
-            
-            _logger.LogInformation("Solicitud guardada. Id: {SolicitudId}", solicitud.Id);
+                _context.Solicitudes.Add(solicitud);
+                _logger.LogInformation("Guardando solicitud en la base de datos...");
 
-            // Crear comentario inicial (directo al contexto, sin llamadas HTTP)
-            var comentarioInicial = new Comentario
-            {
-                SolicitudId = solicitud.Id,
-                UsuarioId = usuarioId,
-                Texto = "Solicitud creada",
-                FechaCreacion = DateTime.Now
-            };
+                await _context.SaveChangesAsync();
 
-            _context.Comentarios.Add(comentarioInicial);
-            _logger.LogInformation("Guardando comentario inicial...");
-            
-            await _context.SaveChangesAsync();
-            
-            _logger.LogInformation("Comentario guardado. Id: {ComentarioId}", comentarioInicial.Id);
+                _logger.LogInformation("Solicitud guardada. Id: {SolicitudId}", solicitud.Id);
 
-            // Cargar relaciones para el DTO
-            _logger.LogInformation("Cargando relaciones de la solicitud...");
-            await _context.Entry(solicitud)
-                .Reference(s => s.Area)
-                .LoadAsync();
-            await _context.Entry(solicitud)
-                .Reference(s => s.TipoSolicitud)
-                .LoadAsync();
-            await _context.Entry(solicitud)
-                .Reference(s => s.Solicitante)
-                .LoadAsync();
+                // Crear comentario inicial del sistema
+                await RegistrarComentarioSistemaAsync(solicitud.Id, usuarioId, "Se creó la solicitud", TipoEventoEnum.Creacion);
+                _logger.LogInformation("Guardando comentario inicial del sistema...");
 
-            _logger.LogInformation("Relaciones cargadas correctamente");
-            
-            var solicitudDto = MapToDto(solicitud);
-            
-            _logger.LogInformation("Solicitud creada exitosamente. Número: {Numero}", solicitudDto.Numero);
-            
-            return solicitudDto;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Comentario del sistema guardado");
+
+                // Cargar relaciones para el DTO
+                _logger.LogInformation("Cargando relaciones de la solicitud...");
+                await _context.Entry(solicitud)
+                    .Reference(s => s.Area)
+                    .LoadAsync();
+                await _context.Entry(solicitud)
+                    .Reference(s => s.TipoSolicitud)
+                    .LoadAsync();
+                await _context.Entry(solicitud)
+                    .Reference(s => s.Solicitante)
+                    .LoadAsync();
+
+                _logger.LogInformation("Relaciones cargadas correctamente");
+
+                var solicitudDto = MapToDto(solicitud);
+
+                _logger.LogInformation("Solicitud creada exitosamente. Número: {Numero}", solicitudDto.Numero);
+
+                return solicitudDto;
             }
             catch (Exception ex)
             {
@@ -209,7 +201,7 @@ namespace Infrastructure.Services
         {
             try
             {
-                _logger.LogInformation("Obteniendo solicitud {SolicitudId} para usuario {UsuarioId}", 
+                _logger.LogInformation("Obteniendo solicitud {SolicitudId} para usuario {UsuarioId}",
                     solicitudId, usuarioId);
 
                 // Obtener el usuario para verificar su rol
@@ -239,7 +231,7 @@ namespace Infrastructure.Services
                     return null;
                 }
 
-                _logger.LogInformation("Solicitud encontrada. SolicitanteId: {SolicitanteId}, AreaId: {AreaId}", 
+                _logger.LogInformation("Solicitud encontrada. SolicitanteId: {SolicitanteId}, AreaId: {AreaId}",
                     solicitud.SolicitanteId, solicitud.AreaId);
 
                 // Verificar permisos:
@@ -266,7 +258,7 @@ namespace Infrastructure.Services
 
                 if (!tienePermiso)
                 {
-                    _logger.LogWarning("Usuario {UsuarioId} sin permisos para ver solicitud {SolicitudId}", 
+                    _logger.LogWarning("Usuario {UsuarioId} sin permisos para ver solicitud {SolicitudId}",
                         usuarioId, solicitudId);
                     return null;
                 }
@@ -276,7 +268,7 @@ namespace Infrastructure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al obtener solicitud {SolicitudId} para usuario {UsuarioId}", 
+                _logger.LogError(ex, "Error al obtener solicitud {SolicitudId} para usuario {UsuarioId}",
                     solicitudId, usuarioId);
                 throw;
             }
@@ -317,7 +309,7 @@ namespace Infrastructure.Services
                 .Include(s => s.TipoSolicitud)
                 .Include(s => s.Solicitante)
                 .Include(s => s.GestorAsignado)
-                .Where(s => 
+                .Where(s =>
                     s.GestorAsignadoId == usuarioId ||  // Asignadas directamente al agente
                     (s.TipoSolicitud.AreaId == areaId && s.TipoSolicitud.Nombre != "Otro") // De su área pero NO tipo "Otro"
                 )
@@ -393,7 +385,7 @@ namespace Infrastructure.Services
             await _context.SaveChangesAsync();
             await _context.Entry(solicitud).Reference(s => s.GestorAsignado).LoadAsync();
 
-            _logger.LogInformation("Usuario {UsuarioId} ({Nombre}) tomó la solicitud {SolicitudId}", 
+            _logger.LogInformation("Usuario {UsuarioId} ({Nombre}) tomó la solicitud {SolicitudId}",
                 usuarioId, usuario.Nombre, solicitudId);
 
             return MapToDto(solicitud);
@@ -412,13 +404,13 @@ namespace Infrastructure.Services
                 throw new NotFoundException("Solicitud no encontrada");
 
             // Validar que no esté resuelta ni rechazada (permite reasignación en otros estados)
-            if (solicitud.Estado == EstadoSolicitudEnum.Resuelta || 
+            if (solicitud.Estado == EstadoSolicitudEnum.Resuelta ||
                 solicitud.Estado == EstadoSolicitudEnum.Rechazada)
                 throw new BusinessException("No se puede asignar/reasignar una solicitud resuelta o rechazada");
 
             _logger.LogInformation($"🔍 Buscando agente con ID: {dto.AgenteId}");
             _logger.LogInformation($"🔍 Valor esperado RolEnum.AgenteArea: {(int)RolEnum.AgenteArea}");
-            
+
             // Primero buscar el usuario sin restricciones para diagnóstico
             var usuarioDebug = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == dto.AgenteId);
             if (usuarioDebug != null)
@@ -465,7 +457,7 @@ namespace Infrastructure.Services
             {
                 solicitud.Estado = EstadoSolicitudEnum.EnProceso;
                 await RegistrarHistorialAsync(solicitud.Id, adminId, estadoAnterior, EstadoSolicitudEnum.EnProceso,
-                    esReasignacion 
+                    esReasignacion
                         ? $"Reasignado de {gestorAnterior} a {agente.Nombre}"
                         : $"Asignado a {agente.Nombre}");
             }
@@ -473,15 +465,29 @@ namespace Infrastructure.Services
             {
                 // Si ya estaba en otro estado (EnProceso, Cancelada, Cerrada), mantener el estado pero registrar la reasignación
                 await RegistrarHistorialAsync(solicitud.Id, adminId, estadoAnterior, estadoAnterior,
-                    esReasignacion 
+                    esReasignacion
                         ? $"Reasignado de {gestorAnterior} a {agente.Nombre}"
                         : $"Asignado a {agente.Nombre}");
+            }
+
+            // Registrar comentario del sistema
+            if (esReasignacion)
+            {
+                await RegistrarComentarioSistemaAsync(solicitud.Id, adminId,
+                    $"Se reasignó de {gestorAnterior} a {agente.Nombre}",
+                    TipoEventoEnum.ReasignacionGestor);
+            }
+            else
+            {
+                await RegistrarComentarioSistemaAsync(solicitud.Id, adminId,
+                    $"Se asignó el gestor {agente.Nombre}",
+                    TipoEventoEnum.AsignacionGestor);
             }
 
             await _context.SaveChangesAsync();
             await _context.Entry(solicitud).Reference(s => s.GestorAsignado).LoadAsync();
 
-            _logger.LogInformation("Solicitud {SolicitudId} {Accion}. Gestor: {Gestor}", 
+            _logger.LogInformation("Solicitud {SolicitudId} {Accion}. Gestor: {Gestor}",
                 solicitud.Id, esReasignacion ? "reasignada" : "asignada", agente.Nombre);
 
             return MapToDto(solicitud);
@@ -532,6 +538,11 @@ namespace Infrastructure.Services
                 await RegistrarHistorialAsync(solicitud.Id, usuarioId, estadoAnterior, estadoAnterior,
                     $"Gestor {gestorAnterior} desasignado");
             }
+
+            // Registrar comentario del sistema
+            await RegistrarComentarioSistemaAsync(solicitud.Id, usuarioId,
+                "Se eliminó la asignación del gestor",
+                TipoEventoEnum.DesasignacionGestor);
 
             await _context.SaveChangesAsync();
 
@@ -591,19 +602,29 @@ namespace Infrastructure.Services
                 solicitud.MotivoRechazo = dto.MotivoRechazo;
                 solicitud.FechaCierre = DateTime.Now;
                 _logger.LogInformation($"Guardando MotivoRechazo: '{dto.MotivoRechazo}' para solicitud {solicitud.Id}");
+
+                // Registrar comentario del sistema para rechazo
+                await RegistrarComentarioSistemaAsync(solicitud.Id, agenteId,
+                    $"Solicitud rechazada. Motivo: {dto.MotivoRechazo}",
+                    TipoEventoEnum.Rechazo);
             }
             else
             {
                 // Limpiar motivo si cambia a otro estado
                 solicitud.MotivoRechazo = null;
+
+                // Registrar comentario del sistema para cambio de estado
+                await RegistrarComentarioSistemaAsync(solicitud.Id, agenteId,
+                    $"Estado cambiado de '{estadoAnterior}' a '{nuevoEstado}'",
+                    TipoEventoEnum.CambioEstado);
             }
 
             // Marcar explícitamente como modificado
             _context.Entry(solicitud).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
-            
+
             await RegistrarHistorialAsync(solicitud.Id, agenteId, estadoAnterior, nuevoEstado, dto.MotivoRechazo);
             await _context.SaveChangesAsync();
-            
+
             _logger.LogInformation($"Cambios guardados. Solicitud {solicitud.Id} - Estado: {solicitud.Estado}, MotivoRechazo: '{solicitud.MotivoRechazo}'");
 
             return MapToDto(solicitud);
@@ -635,7 +656,7 @@ namespace Infrastructure.Services
                 throw new UnauthorizedActionException("No tienes permiso para gestionar esta solicitud");
             }
 
-            if (solicitud.Estado == EstadoSolicitudEnum.Cerrada || 
+            if (solicitud.Estado == EstadoSolicitudEnum.Cerrada ||
                 solicitud.Estado == EstadoSolicitudEnum.Rechazada ||
                 solicitud.Estado == EstadoSolicitudEnum.Cancelada)
                 throw new BusinessException("No se puede rechazar una solicitud cerrada, rechazada o cancelada");
@@ -697,6 +718,22 @@ namespace Infrastructure.Services
             _context.HistorialEstados.Add(historial);
         }
 
+        // Método para registrar comentarios automáticos del sistema
+        private async Task RegistrarComentarioSistemaAsync(int solicitudId, int usuarioId, string mensaje, TipoEventoEnum tipoEvento)
+        {
+            var comentario = new Comentario
+            {
+                SolicitudId = solicitudId,
+                UsuarioId = usuarioId,
+                Texto = mensaje,
+                FechaCreacion = DateTime.Now,
+                EsSistema = true,
+                TipoEvento = tipoEvento
+            };
+
+            _context.Comentarios.Add(comentario);
+        }
+
         private bool EsTransicionValida(EstadoSolicitudEnum estadoActual, EstadoSolicitudEnum estadoNuevo)
         {
             // Transiciones permitidas para agentes del área:
@@ -708,7 +745,7 @@ namespace Infrastructure.Services
             // Los administradores NO pasan por esta validación (pueden hacer cualquier transición)
             return estadoActual switch
             {
-                EstadoSolicitudEnum.Nueva => estadoNuevo == EstadoSolicitudEnum.EnProceso || 
+                EstadoSolicitudEnum.Nueva => estadoNuevo == EstadoSolicitudEnum.EnProceso ||
                                               estadoNuevo == EstadoSolicitudEnum.Resuelta ||
                                               estadoNuevo == EstadoSolicitudEnum.Rechazada ||
                                               estadoNuevo == EstadoSolicitudEnum.Cancelada,
@@ -736,15 +773,15 @@ namespace Infrastructure.Services
                 Descripcion = solicitud.Descripcion,
                 Estado = solicitud.Estado.ToString(),
                 Prioridad = solicitud.Prioridad.ToString(),
-                
+
                 // Área con ID
                 AreaId = solicitud.AreaId,
                 Area = solicitud.Area?.Nombre ?? string.Empty,
-                
+
                 // TipoSolicitud con ID
                 TipoSolicitudId = solicitud.TipoSolicitudId,
                 TipoSolicitud = solicitud.TipoSolicitud?.Nombre ?? string.Empty,
-                
+
                 // Solicitante con ID y email
                 SolicitanteId = solicitud.SolicitanteId,
                 Solicitante = solicitud.Solicitante?.Nombre ?? string.Empty,
@@ -752,19 +789,19 @@ namespace Infrastructure.Services
                 SolicitanteDepartamento = solicitud.Solicitante?.Area?.Nombre,
                 SolicitanteRol = (int?)solicitud.Solicitante?.Rol,
                 SolicitanteRolNombre = solicitud.Solicitante != null ? ObtenerNombreRol((int)solicitud.Solicitante.Rol) : null,
-                
+
                 // Gestor Asignado (opcional) con ID y email
                 GestorAsignadoId = solicitud.GestorAsignadoId,
                 GestorAsignado = solicitud.GestorAsignado?.Nombre,
                 GestorAsignadoEmail = solicitud.GestorAsignado?.Email,
-                
+
                 // Fechas
                 FechaCreacion = solicitud.FechaCreacion,
                 FechaCierre = solicitud.FechaCierre,
-                
+
                 // Campos adicionales
                 MotivoRechazo = solicitud.MotivoRechazo,
-                
+
                 // Archivo adjunto
                 Archivo = !string.IsNullOrEmpty(solicitud.ArchivoNombre) ? new Application.DTOs.Solicitudes.ArchivoAdjuntoDto
                 {
@@ -772,7 +809,7 @@ namespace Infrastructure.Services
                     ContentType = solicitud.ArchivoContentType,
                     TamanoBytes = null // No tenemos el tamaño guardado en BD
                 } : null,
-                
+
                 // Comentarios
                 Comentarios = solicitud.Comentarios?.Select(c => new Application.DTOs.Comentarios.ComentarioDto
                 {
@@ -783,7 +820,15 @@ namespace Infrastructure.Services
                     NombreUsuario = c.Usuario?.Nombre ?? string.Empty,
                     UsuarioRol = (int?)c.Usuario?.Rol,
                     UsuarioRolNombre = c.Usuario != null ? ObtenerNombreRol((int)c.Usuario.Rol) : null,
-                    UsuarioDepartamento = c.Usuario?.Area?.Nombre
+                    UsuarioDepartamento = c.Usuario?.Area?.Nombre,
+                    Usuario = c.Usuario != null ? new Application.DTOs.Comentarios.UsuarioComentarioDto
+                    {
+                        Id = c.Usuario.Id,
+                        Nombre = c.Usuario.Nombre,
+                        Email = c.Usuario.Email
+                    } : null,
+                    EsSistema = c.EsSistema,
+                    TipoEvento = c.TipoEvento?.ToString()
                 }).OrderBy(c => c.FechaCreacion).ToList() ?? new List<Application.DTOs.Comentarios.ComentarioDto>()
             };
         }
@@ -799,44 +844,52 @@ namespace Infrastructure.Services
                     .ThenInclude(c => c.Usuario)
                         .ThenInclude(u => u.Area)
                 .FirstOrDefaultAsync(s => s.Id == solicitudId);
-            
+
             if (solicitud == null)
                 throw new NotFoundException("Solicitud no encontrada");
-            
+
             // VALIDACIÓN 1: Solo el creador puede editar
             if (solicitud.SolicitanteId != usuarioId)
                 throw new UnauthorizedActionException("Solo puedes editar tus propias solicitudes");
-            
+
             // VALIDACIÓN 2: Solo si está en estado Nueva
             if (solicitud.Estado != EstadoSolicitudEnum.Nueva)
                 throw new BusinessException("Solo puedes editar solicitudes en estado 'Nueva'");
-            
+
             // VALIDACIÓN 3: Solo si no tiene agente asignado
             if (solicitud.GestorAsignadoId.HasValue)
                 throw new BusinessException("No puedes editar una solicitud que ya tiene agente asignado");
-            
+
             // Guardar valores anteriores para el comentario de historial
-            var cambios = new List<string>();
-            
+            bool huboAsuntoEditado = false;
+            bool huboDescripcionEditada = false;
+            bool huboPrioridadEditada = false;
+
             if (solicitud.Asunto != dto.Asunto)
-                cambios.Add($"Asunto: '{solicitud.Asunto}' → '{dto.Asunto}'");
-            
+            {
+                solicitud.Asunto = dto.Asunto;
+                huboAsuntoEditado = true;
+            }
+
             if (solicitud.Descripcion != dto.Descripcion)
-                cambios.Add("Descripción modificada");
-            
+            {
+                solicitud.Descripcion = dto.Descripcion;
+                huboDescripcionEditada = true;
+            }
+
             if ((int)solicitud.Prioridad != dto.Prioridad)
             {
-                var prioridadAnterior = solicitud.Prioridad == PrioridadEnum.Baja ? "Baja" : 
-                                       solicitud.Prioridad == PrioridadEnum.Media ? "Media" : "Alta";
-                var prioridadNueva = dto.Prioridad == 1 ? "Baja" : dto.Prioridad == 2 ? "Media" : "Alta";
-                cambios.Add($"Prioridad: {prioridadAnterior} → {prioridadNueva}");
+                var prioridadAnterior = solicitud.Prioridad;
+                var prioridadNueva = (PrioridadEnum)dto.Prioridad;
+                solicitud.Prioridad = prioridadNueva;
+                huboPrioridadEditada = true;
+
+                // Registrar comentario del sistema para cambio de prioridad
+                await RegistrarComentarioSistemaAsync(solicitud.Id, usuarioId,
+                    $"Prioridad cambiada de '{prioridadAnterior}' a '{prioridadNueva}'",
+                    TipoEventoEnum.CambioPrioridad);
             }
-            
-            // Actualizar campos
-            solicitud.Asunto = dto.Asunto;
-            solicitud.Descripcion = dto.Descripcion;
-            solicitud.Prioridad = (PrioridadEnum)dto.Prioridad;
-            
+
             // Manejar archivo adjunto
             if (dto.EliminarArchivo && !string.IsNullOrEmpty(solicitud.ArchivoRuta))
             {
@@ -847,11 +900,15 @@ namespace Infrastructure.Services
                     File.Delete(archivoPath);
                     _logger.LogInformation("Archivo eliminado: {ArchivoPath}", archivoPath);
                 }
-                
+
                 solicitud.ArchivoNombre = null;
                 solicitud.ArchivoRuta = null;
                 solicitud.ArchivoContentType = null;
-                cambios.Add("Archivo adjunto eliminado");
+
+                // Registrar comentario del sistema para eliminación de archivo
+                await RegistrarComentarioSistemaAsync(solicitud.Id, usuarioId,
+                    "Se eliminó el archivo adjunto",
+                    TipoEventoEnum.ArchivoEliminado);
             }
             else if (dto.Archivo != null && dto.Archivo.Length > 0)
             {
@@ -865,47 +922,51 @@ namespace Infrastructure.Services
                         _logger.LogInformation("Archivo anterior eliminado: {ArchivoPath}", archivoAnterior);
                     }
                 }
-                
+
                 // Guardar nuevo archivo
                 var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
                 Directory.CreateDirectory(uploadPath);
-                
+
                 var fileName = $"{Guid.NewGuid()}_{dto.Archivo.FileName}";
                 var filePath = Path.Combine(uploadPath, fileName);
-                
+
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
                     await dto.Archivo.CopyToAsync(stream);
                 }
-                
+
                 solicitud.ArchivoNombre = dto.Archivo.FileName;
                 solicitud.ArchivoRuta = $"/uploads/{fileName}";
                 solicitud.ArchivoContentType = dto.Archivo.ContentType;
-                
+
                 _logger.LogInformation("Nuevo archivo guardado: {FileName}", fileName);
-                cambios.Add($"Archivo actualizado: {dto.Archivo.FileName}");
+
+                // Registrar comentario del sistema para adjuntar archivo
+                await RegistrarComentarioSistemaAsync(solicitud.Id, usuarioId,
+                    $"Se adjuntó el archivo '{dto.Archivo.FileName}'",
+                    TipoEventoEnum.ArchivoAdjuntado);
             }
-            
-            // Agregar comentario de historial si hubo cambios
-            if (cambios.Any())
+
+            // Registrar comentarios del sistema para ediciones de asunto y descripción
+            if (huboAsuntoEditado)
             {
-                var comentario = new Comentario
-                {
-                    SolicitudId = solicitudId,
-                    UsuarioId = usuarioId,
-                    Texto = $"📝 Solicitud editada:\n{string.Join("\n", cambios)}",
-                    FechaCreacion = DateTime.Now
-                };
-                
-                _context.Comentarios.Add(comentario);
-                _logger.LogInformation("Comentario de edición agregado para solicitud {SolicitudId}", solicitudId);
+                await RegistrarComentarioSistemaAsync(solicitud.Id, usuarioId,
+                    "Se modificó el asunto",
+                    TipoEventoEnum.EdicionAsunto);
             }
-            
+
+            if (huboDescripcionEditada)
+            {
+                await RegistrarComentarioSistemaAsync(solicitud.Id, usuarioId,
+                    "Se actualizó la descripción",
+                    TipoEventoEnum.EdicionDescripcion);
+            }
+
             _context.Entry(solicitud).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
             await _context.SaveChangesAsync();
-            
+
             _logger.LogInformation("Solicitud {SolicitudId} editada exitosamente", solicitudId);
-            
+
             // Devolver DTO actualizado
             return MapToDto(solicitud);
         }
